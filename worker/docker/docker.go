@@ -4,17 +4,18 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
-// addFileToTarWriter 添加单个文件到 tar 归档
 func addFileToTarWriter(tw *tar.Writer, filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -32,7 +33,6 @@ func addFileToTarWriter(tw *tar.Writer, filename string) error {
 		return err
 	}
 
-	// 重要：更改 header.Name 以反映文件在容器内的预期路径
 	header.Name = strings.TrimPrefix(filename, "worker/docker/")
 	if err := tw.WriteHeader(header); err != nil {
 		return err
@@ -42,16 +42,15 @@ func addFileToTarWriter(tw *tar.Writer, filename string) error {
 	return err
 }
 
-func createDockerContext() (io.Reader, error) {
+func getDockerContext() (io.Reader, error) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 
-	// 添加 Dockerfile
+	// add Dockerfile
 	if err := addFileToTarWriter(tw, "worker/docker/dockerfile"); err != nil {
 		return nil, err
 	}
-
-	// 添加 code 目录下的所有文件
+	// add code dictionary
 	err := filepath.Walk("worker/docker/code", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -61,48 +60,48 @@ func createDockerContext() (io.Reader, error) {
 		}
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
-
-	if err := tw.Close(); err != nil {
-		return nil, err
-	}
-
 	return buf, nil
 }
 
-func Run() {
+func DockerPoolInit() {
+	ctx := context.Background()
+	// docker client init
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
 	}
+	defer cli.Close()
 
-	dockerBuildContext, err := createDockerContext()
+	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Image: "golang:1.20.11",
+		Cmd:   []string{"go", "run", "/app/code/main.go"},
+	}, &container.HostConfig{
+		Binds: []string{
+			"/home/alco/go-project/golang-oj-worker/worker/docker/code:/app/code",
+		},
+	}, nil, nil, "golang-runner")
+	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		log.Fatalf("Container create failed: %v", err)
+	}
+
+	// wait
+	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			log.Fatalf("Container wait failed: %v", err)
+		}
+	case <-statusCh:
+	}
+
+	// get container logs/outputs
+	out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
 	if err != nil {
-		panic(err)
-	}
-	tags := fmt.Sprintf("%s:%s", "testimg", "0.0.1")
-
-	buildOptions := types.ImageBuildOptions{
-		Dockerfile: "dockerfile", // optional, is the default
-		Tags:       []string{tags},
-		Remove:     true,
+		log.Fatalf("Container get logs failed: %v", err)
 	}
 
-	output, err := cli.ImageBuild(context.Background(), dockerBuildContext, buildOptions)
-	if err != nil {
-		panic(err)
-	}
-
-	body, err := io.ReadAll(output.Body)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Build resource image output: %v\n", string(body))
-
-	if strings.Contains(string(body), "error") {
-		panic("build image to docker error")
-	}
+	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 }

@@ -10,9 +10,3 @@ COPY code/main.go .
 # 构建你的应用程序
 RUN GO111MODULE=off CGO_ENABLED=0 GOOS=linux go build -o myapp
 
-# 使用轻量级基础镜像运行
-FROM alpine:latest  
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
-COPY --from=builder /app/myapp .
-CMD ["./myapp"]

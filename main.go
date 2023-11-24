@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	docker.Run()
+	docker.DockerPoolInit()
 }
