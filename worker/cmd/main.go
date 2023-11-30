@@ -1,8 +1,6 @@
 package main
 
-import (
-	"worker/docker"
-)
+import "worker/pkg/docker"
 
 func main() {
 	worker, err := docker.GetWorker()
