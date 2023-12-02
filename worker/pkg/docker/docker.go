@@ -16,13 +16,19 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
+type Docker interface {
+	Build()
+	Create()
+	Run()
+}
+
 type DockerWorker struct {
-	ID     string
-	worker *client.Client
+	ID    string
+	Image string //"golang:1.20.11"
+	cli   *client.Client
 }
 
 func GetWorker() (*DockerWorker, error) {
-	ctx := context.Background()
 	worker := new(DockerWorker)
 
 	// docker client init
@@ -30,28 +36,32 @@ func GetWorker() (*DockerWorker, error) {
 	if err != nil {
 		return nil, err
 	}
-	worker.worker = cli
+	worker.cli = cli
+	return worker, nil
+}
 
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: "golang:1.20.11",
+func (d *DockerWorker) Create(ctx context.Context) error {
+	resp, err := d.cli.ContainerCreate(ctx, &container.Config{
+		Image: d.Image,
 		Cmd:   []string{"go", "run", "/app/code/main.go"},
 	}, &container.HostConfig{
 		Binds: []string{
 			"/home/alco/go-project/golang-oj-worker/worker/docker/code:/app/code",
 		},
 	}, nil, nil, "golang-runner")
-	worker.ID = resp.ID
-
-	return worker, nil
+	if err != nil {
+		return err
+	}
+	d.ID = resp.ID
+	return nil
 }
 
-func (d *DockerWorker) RunCode(input string) string {
-	cli := d.worker
-	ctx := context.Background()
+func (d *DockerWorker) Run(ctx context.Context, input string) string {
+	cli := d.cli
 
-	// if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-	// 	log.Fatalf("Container create failed: %v", err)
-	// }
+	if err := cli.ContainerStart(ctx, d.ID, types.ContainerStartOptions{}); err != nil {
+		log.Fatalf("Container create failed: %v", err)
+	}
 
 	// wait
 	statusCh, errCh := cli.ContainerWait(ctx, d.ID, container.WaitConditionNotRunning)
@@ -71,6 +81,31 @@ func (d *DockerWorker) RunCode(input string) string {
 
 	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 	return ""
+}
+
+func getDockerContext() (io.Reader, error) {
+	buf := new(bytes.Buffer)
+	tw := tar.NewWriter(buf)
+
+	// add Dockerfile
+	if err := addFileToTarWriter(tw, "worker/docker/dockerfile"); err != nil {
+		return nil, err
+	}
+
+	// add code dictionary
+	err := filepath.Walk("worker/docker/code", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return addFileToTarWriter(tw, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
 
 func addFileToTarWriter(tw *tar.Writer, filename string) error {
@@ -97,29 +132,4 @@ func addFileToTarWriter(tw *tar.Writer, filename string) error {
 
 	_, err = io.Copy(tw, file)
 	return err
-}
-
-func getDockerContext() (io.Reader, error) {
-	buf := new(bytes.Buffer)
-	tw := tar.NewWriter(buf)
-
-	// add Dockerfile
-	if err := addFileToTarWriter(tw, "worker/docker/dockerfile"); err != nil {
-		return nil, err
-	}
-
-	// add code dictionary
-	err := filepath.Walk("worker/docker/code", func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			return addFileToTarWriter(tw, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return buf, nil
 }
