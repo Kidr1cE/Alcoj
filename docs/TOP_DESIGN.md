@@ -18,5 +18,5 @@ sequenceDiagram
     Factory->>Workers: Code
     Workers->>Factory: Outputs & Others info
     Factory->>students: trated info
-    Workers->>Data Center: Send submit info
+    Factory->>Data Center: Send submit info
 ```

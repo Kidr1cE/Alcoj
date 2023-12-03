@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"worker/pkg/utils"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -23,9 +24,8 @@ type Docker interface {
 }
 
 type DockerWorker struct {
-	ID    string
-	Image string //"golang:1.20.11"
-	cli   *client.Client
+	ID  string
+	cli *client.Client
 }
 
 func GetWorker() (*DockerWorker, error) {
@@ -41,14 +41,19 @@ func GetWorker() (*DockerWorker, error) {
 }
 
 func (d *DockerWorker) Create(ctx context.Context) error {
+	path, err := utils.GetPath("pkg/docker/app")
+	if err != nil {
+		return err
+	}
+
 	resp, err := d.cli.ContainerCreate(ctx, &container.Config{
-		Image: d.Image,
-		Cmd:   []string{"go", "run", "/app/code/main.go"},
+		Image:      "golang:1.20.11",
+		Entrypoint: []string{"bash", "/app/run.sh"},
 	}, &container.HostConfig{
 		Binds: []string{
-			"/home/alco/go-project/golang-oj-worker/worker/docker/code:/app/code",
+			path + ":/app",
 		},
-	}, nil, nil, "golang-runner")
+	}, nil, nil, "sandbox")
 	if err != nil {
 		return err
 	}
@@ -74,13 +79,17 @@ func (d *DockerWorker) Run(ctx context.Context, input string) string {
 	}
 
 	// get container logs/outputs
-	out, err := cli.ContainerLogs(ctx, d.ID, types.ContainerLogsOptions{ShowStdout: true})
+	out, err := cli.ContainerLogs(ctx, d.ID, types.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
 	if err != nil {
 		log.Fatalf("Container get logs failed: %v", err)
 	}
 
-	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
-	return ""
+	var buf bytes.Buffer
+	_, err = stdcopy.StdCopy(&buf, &buf, out)
+	if err != nil {
+		log.Fatalf("StdCopy failed: %v", err)
+	}
+	return buf.String()
 }
 
 func getDockerContext() (io.Reader, error) {

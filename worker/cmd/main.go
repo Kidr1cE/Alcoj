@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"worker/pkg/docker"
 )
 
@@ -13,5 +14,6 @@ func main() {
 
 	ctx := context.Background()
 	worker.Create(ctx)
-	worker.Run(ctx, "")
+	fmt.Println(worker.ID)
+	fmt.Println(worker.Run(ctx, ""))
 }
