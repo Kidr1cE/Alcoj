@@ -19,7 +19,6 @@ func GetPath(folder string) (string, error) {
 		return "", err
 	}
 
-	// 拼接当前工作目录的路径和app目录的相对路径
 	path := filepath.Join(wd, folder)
 	return path, nil
 }

@@ -22,7 +22,10 @@ type Docker interface {
 	Create()
 	Run()
 }
-
+type DockerConfig struct {
+	Image string
+	Cmd   string
+}
 type DockerWorker struct {
 	ID  string
 	cli *client.Client
@@ -38,6 +41,11 @@ func GetWorker() (*DockerWorker, error) {
 	}
 	worker.cli = cli
 	return worker, nil
+}
+
+func (d *DockerWorker) Build(ctx context.Context) error {
+
+	return nil
 }
 
 func (d *DockerWorker) Create(ctx context.Context) error {
