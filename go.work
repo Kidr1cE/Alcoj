@@ -1,9 +1,0 @@
-go 1.21.1
-
-use ./worker
-
-use ./factory
-
-use ./user
-
-use ./analyzer

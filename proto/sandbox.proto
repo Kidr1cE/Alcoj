@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+option go_package = "github.com/Kidr1cE/golang-oj-worker/proto/grpc";
+message Env {
+
+}
+
+message Expect {
+    string input = 1;
+    string output = 2;
+}
+
+message SetEnvRequest {
+    string dockerfile = 1;
+    string start_shell = 2;
+}
+
+message SetEnvResponse {
+    string status = 1;
+}
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+    int32 status = 1;
+}
+
+message RunRequest {
+    string code = 1;
+}
+
+message RunResponse {
+
+}
+
+service Sandbox {
+    rpc SetEnv(SetEnvRequest) returns (SetEnvResponse) {}
+
+    rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {};
+
+    rpc Run(RunRequest) returns (RunResponse) {}
+}

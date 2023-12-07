@@ -1,13 +1,15 @@
 package main
 
 import (
+	"alcoj/worker/pkg/docker"
 	"context"
 	"fmt"
-	"worker/pkg/docker"
 )
 
+var worker *docker.DockerWorker
+
 func main() {
-	worker, err := docker.GetWorker()
+	worker, err := docker.GetWorker(&docker.Environment{Code: "golang", Version: "1.20.11"})
 	if err != nil {
 		panic(err)
 	}

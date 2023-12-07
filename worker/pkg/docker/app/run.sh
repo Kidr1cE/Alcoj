@@ -1,1 +1,5 @@
-go run main.go > cmd.out 2>&1 & cat /proc/$!/status
+# !/bin/bash
+# monitor the app
+time go run /app/main.go # run the app
+
+top 
