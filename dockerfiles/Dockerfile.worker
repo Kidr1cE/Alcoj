@@ -1,23 +1,29 @@
-# Start from the latest golang base image
-FROM golang:latest
+FROM golang:1.21.1 AS build
 
-# Set the Current Working Directory inside the container
 WORKDIR /app
 
-# Copy go mod and sum files
 COPY go.mod go.sum ./
 
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
 RUN go mod download
 
-# Copy the source from the current directory to the Working Directory inside the container
 COPY . .
 
-# Build the Go app
-RUN go build -o main .
+RUN CGO_ENABLED=0 GOOS=linux go build -o worker ./cmd/worker/main.go
 
-# Expose port 8080 to the outside world
-EXPOSE 8080
+# Step 2
 
-# Command to run the executable
-CMD ["./main"]
+# FROM docker
+FROM alpine:latest
+
+WORKDIR /app
+
+RUN mkdir /app/source
+RUN mkdir /app/dockerfile
+
+COPY --from=build /app/worker /app/worker
+
+RUN chmod +x /app/worker/main
+
+EXPOSE 50051
+
+CMD ["/app/worker/main"]

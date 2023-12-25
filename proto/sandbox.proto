@@ -1,42 +1,45 @@
 syntax = "proto3";
 
 option go_package = "github.com/Kidr1cE/golang-oj-worker/proto/grpc";
-message Env {
 
+// HealthCheck
+message HealthCheckRequest {}
+message HealthCheckResponse {
+    bool status = 1;
 }
 
-message Expect {
-    string input = 1;
-    string output = 2;
+// GetDockerStatus
+message GetStatusRequest{}
+message GetStatusResponse{
+    bool status = 1;
+    string message = 2;
 }
 
+// SetEnv
 message SetEnvRequest {
-    string dockerfile = 1;
-    string start_shell = 2;
+    bool raw = 1;
+    string image_name = 2;
+    bytes dockerfile = 3;
 }
-
 message SetEnvResponse {
-    string status = 1;
+    bool status = 1;
+    string message = 2;
 }
 
-message GetStatusRequest {}
-
-message GetStatusResponse {
-    int32 status = 1;
+// SendRequirements
+message FileChunk {
+    string filename = 1;
+    bytes content = 2;
+    bool is_last_chunk = 3;
 }
-
-message RunRequest {
-    string code = 1;
-}
-
-message RunResponse {
-
+message UploadStatus {
+    bool success = 1;
+    string message = 2;
 }
 
 service Sandbox {
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse) {}
+    rpc GetDockerStatus(GetStatusRequest) returns (GetStatusResponse) {}
     rpc SetEnv(SetEnvRequest) returns (SetEnvResponse) {}
-
-    rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {};
-
-    rpc Run(RunRequest) returns (RunResponse) {}
+    rpc SendRequirements(stream FileChunk) returns (stream UploadStatus) {}
 }

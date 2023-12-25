@@ -1,9 +1,0 @@
-FROM golang:1.20.11 as builder
-
-WORKDIR /app
-
-COPY code/main.go .
-
-# RUN GO111MODULE=off CGO_ENABLED=0 GOOS=linux go build -o myapp
-
-ENTRYPOINT ["/app/code/run.sh"]
