@@ -35,3 +35,6 @@ coverage/
 go.work
 go.work.sum
 package-lock.json
+
+# app
+pkg/docker/app

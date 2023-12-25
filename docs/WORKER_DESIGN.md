@@ -9,11 +9,11 @@ or expose object service ports
 #### Struct
 ```go
 type Docker struct {
-
-    cli *client.Client
+    ID      string
+    Image   string
+    cli     *client.Client  // private client
 }
 ```
-
 #### Status
 0. Unknown: Docker engine not ready
 1. Raw: Docker service ready
