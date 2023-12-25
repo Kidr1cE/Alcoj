@@ -37,4 +37,4 @@ go.work.sum
 package-lock.json
 
 # app
-pkg/docker/app
+pkg/docker/app/
