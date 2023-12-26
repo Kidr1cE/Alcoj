@@ -15,7 +15,7 @@ type Docker struct {
 }
 ```
 #### Status
-0. Unknown: Docker engine not ready
+0. Unknown: Docker engine not ready or fail to connect docker engine
 1. Raw: Docker service ready
 2. Building: Build Image using dockerfile
 3. NoSource: Create container
@@ -25,8 +25,10 @@ type Docker struct {
 The Worker module is an automaton with multiple loops.
 ```mermaid
 flowchart TD
-    Raw[Raw]--SetEnv(Dockerfile)--> Building[Build Image]
+    Unknown[Unknown] --SetEnv(Dockerfile)-->Raw
+    Raw[Raw]--> Building[Build Image]
     Building-->NoSource[NoSource]
+    Raw-->NoSource
     NoSource--Cleanup-->Raw
     NoSource--SendReuirements(Souece)-->Ready[Ready]
     Ready--Running-->Running[Running]

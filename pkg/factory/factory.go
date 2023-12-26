@@ -36,7 +36,8 @@ func StartServer() {
 	log.Println(dockerInfo)
 
 	setenvResp, err := c.SetEnv(context.Background(), &pb.SetEnvRequest{
-		Raw:        false,
+		Raw:        true,
+		ImageName:  "python:3.8",
 		Dockerfile: []byte("d1as32d13as21d3a1sd2as"),
 	})
 	if err != nil {

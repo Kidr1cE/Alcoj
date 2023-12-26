@@ -22,8 +22,6 @@ RUN mkdir /app/dockerfile
 
 COPY --from=build /app/worker /app/worker
 
-RUN chmod +x /app/worker/main
-
 EXPOSE 50051
 
-CMD ["/app/worker/main"]
+CMD ["/app/worker"]

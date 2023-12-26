@@ -47,22 +47,6 @@ func startServer() {
 	}
 }
 
-func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.SetEnvResponse, error) {
-	log.Println("set env")
-	if !in.Raw {
-		if err := util.WriteDockerfile(in.Dockerfile); err != nil {
-			return &pb.SetEnvResponse{
-				Status:  false,
-				Message: err.Error(),
-			}, nil
-		}
-	}
-	return &pb.SetEnvResponse{
-		Status:  true,
-		Message: "",
-	}, nil
-}
-
 func (s *WorkerServer) HealthCheck(ctx context.Context, in *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
 	log.Println("health check")
 	return &pb.HealthCheckResponse{Status: true}, nil
@@ -79,6 +63,49 @@ func (s *WorkerServer) GetDockerStatus(ctx context.Context, in *pb.GetStatusRequ
 	return &pb.GetStatusResponse{
 		Status:  true,
 		Message: msg,
+	}, nil
+}
+
+func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.SetEnvResponse, error) {
+	log.Println("set env")
+
+	// if dockerfile is not raw, write it to dockerfile
+	if !in.Raw {
+		if err := util.WriteDockerfile(in.Dockerfile); err != nil {
+			return &pb.SetEnvResponse{
+				Status:  false,
+				Message: err.Error(),
+			}, nil
+		}
+		s.cli.Image = in.ImageName
+		if err := s.cli.Build(ctx); err != nil {
+			log.Println("build error: ", err)
+			return &pb.SetEnvResponse{
+				Status:  false,
+				Message: err.Error(),
+			}, nil
+		}
+	} else {
+		log.Println("pull image")
+		s.cli.Image = in.ImageName
+		lang, version := util.AnalysisImage(in.ImageName)
+		s.cli.Lang = lang
+		s.cli.Version = version
+		s.cli.Pull(ctx)
+	}
+
+	err := s.cli.Create(ctx)
+	if err != nil {
+		log.Println("create error: ", err)
+		return &pb.SetEnvResponse{
+			Status:  false,
+			Message: err.Error(),
+		}, nil
+	}
+
+	return &pb.SetEnvResponse{
+		Status:  true,
+		Message: "",
 	}, nil
 }
 

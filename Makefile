@@ -7,5 +7,4 @@ build-sandbox-proto:
 docker-build-worker:
 	docker build -t worker -f dockerfiles/Dockerfile.worker .
 docker-run-worker:
-	docker run --name worker -p 50051:50051 -v /var/run/docker.sock:/var/run/docker.sock -it worker
-
+	docker run --privileged --name worker -p 50051:50051 -v /var/run/docker.sock:/var/run/docker.sock -it worker

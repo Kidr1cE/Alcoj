@@ -17,8 +17,9 @@ import (
 )
 
 const (
+	AppPath        = "/app"
 	AppFolderPath  = "/app/source"
-	DockerfilePath = "/app/dockerfile/Dockerfile"
+	DockerfilePath = "/app/dockerfile"
 )
 
 type DockerInterface interface {
@@ -27,22 +28,13 @@ type DockerInterface interface {
 	Run()
 }
 
-type Environment struct {
-	Raw        bool
-	ImageName  string
-	Dockerfile string
-}
-
-type Code struct {
-	Type      int // 0: single file, 1: tar.gz, 2: zip
-	Source    []byte
-	TimeLimit int
-}
-
 type DockerWorker struct {
-	ID    string
-	Image string
-	cli   *client.Client
+	ID      string
+	Image   string
+	Lang    string
+	Version string
+	Status  int
+	cli     *client.Client
 }
 
 func NewWorker() (*DockerWorker, error) {
@@ -53,6 +45,8 @@ func NewWorker() (*DockerWorker, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	worker.Status = Unknown
 
 	worker.cli = cli
 	return worker, nil
@@ -67,8 +61,25 @@ func (d *DockerWorker) Info(ctx context.Context) (string, error) {
 	return info.ID, nil
 }
 
+func (d *DockerWorker) Pull(ctx context.Context) error {
+	cli := d.cli
+	reader, err := cli.ImagePull(ctx, d.Image, types.ImagePullOptions{})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	io.Copy(os.Stdout, reader)
+	return nil
+}
+
 // Build docker image
-func (d *DockerWorker) Build(ctx context.Context, dockerContext io.Reader) error {
+func (d *DockerWorker) Build(ctx context.Context) error {
+	dockerContext, err := getDockerContext(AppPath)
+	if err != nil {
+		log.Fatalf("get docker context failed: %v", err)
+		return err
+	}
+
 	// build image
 	resp, err := d.cli.ImageBuild(ctx, dockerContext, types.ImageBuildOptions{
 		Tags: []string{d.Image},
@@ -85,19 +96,21 @@ func (d *DockerWorker) Build(ctx context.Context, dockerContext io.Reader) error
 		return err
 	}
 
+	d.Status = NoSource
+
 	return nil
 }
 
 // Create docker container
 func (d *DockerWorker) Create(ctx context.Context) error {
 	resp, err := d.cli.ContainerCreate(ctx, &container.Config{
-		Image:      d.Image,
-		Entrypoint: []string{"bash", "/app/run.sh"},
+		Image: d.Image,
+		// Entrypoint: []string{"bash", "/app/run.sh"},
 	}, &container.HostConfig{
 		Binds: []string{
-			AppFolderPath,
+			AppFolderPath + ":/app",
 		},
-	}, nil, nil, "sandbox")
+	}, nil, nil, d.Lang)
 	if err != nil {
 		return err
 	}
@@ -149,18 +162,18 @@ func (d *DockerWorker) Clean(ctx context.Context) error {
 }
 
 // /app + dockerfile
-func GetDockerContext(path string) (io.Reader, error) {
+func getDockerContext(path string) (io.Reader, error) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 
 	// add Dockerfile
-	dockerfilePath := filepath.Join(path, "dockerfile")
+	dockerfilePath := filepath.Join(path, "dockerfile/dockerfile")
 	if err := addFileToTarWriter(tw, dockerfilePath); err != nil {
 		return nil, err
 	}
 
 	// add code dictionary
-	appPath := filepath.Join(path, "app")
+	appPath := filepath.Join(path, "source")
 	err := filepath.Walk(appPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
