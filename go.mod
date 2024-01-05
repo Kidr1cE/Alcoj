@@ -4,6 +4,7 @@ go 1.21.1
 
 require (
 	github.com/docker/docker v24.0.7+incompatible
+	github.com/google/uuid v1.3.1
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 )

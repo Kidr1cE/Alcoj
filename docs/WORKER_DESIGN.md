@@ -4,13 +4,15 @@ The service should be created by Factory
 This module is the smallest OJ unit, each unit maintains a sanbox Container internally  
 This unit receives topic submissions and returns output + runtime information  
 or expose object service ports
-## Models
+## Global Design
 ### Docker
-#### Struct
 ```go
 type Docker struct {
     ID      string
     Image   string
+    Lang    string
+    Version string
+    Entry   int             // 0 shell, 1 
     cli     *client.Client  // private client
 }
 ```
@@ -51,91 +53,18 @@ flowchart TD
 * Cleanup:  
     * Transition: `NoSource` → `Raw`
     * Description: Reverts the system to its original, unconfigured state (Raw), post-operations.
-
-### Worker
-Encapsulate the Docker module to provide gRPC methods for controlling the state of the automaton.
-#### Functions Design
-1. HealthCheck  
-    * Description: Get current Server status.  
-    * Request: `nil`  
-    * Response:
-    ```proto
-    message HealthCheckResponse {
-        bool status = 1;
-    }
-    ```
-2. 
-    * Description: Get current Docker statGetDockerStatusus.  
-    * Request: `nil`
-    * Response:
-    ```proto
-    message GetDockerStatusResponse {
-        string status = 1; // The docker status above
-        string msg = 2; // if the status don't allow, return error message
-    }
-    ```
-3. SetEnv
-    * Description: Set dockerfile.
-    * Request:  
-    ```proto
-    message SetEnv {
-        bool raw = 1;
-        string image_name = 2;  // if raw
-        bytes dockerfile = 3;   // if not raw
-    }
-    ```
-    * Response:
-    ```proto
-    message SetEnvResponse {
-        bool success = 1;
-        string msg = 2; // error
-    }
-    ```
-4. SendRequirements
-    * Description: Send source file using stream. SendRequirements
-    * Request:  
-    ```proto
-    // use stream
-    message FileChunk {
-        string filename = 1;
-        bytes content = 2;
-        bool is_last_chunk = 3;
-    }
-    ```
-    * Response:
-    ```proto
-    // use stream
-    message UploadStatus {
-        bool success = 1;
-        string message = 2;
-    }
-    ```
+## Docker Action
+0. Info
+    * Description: similar to ping docker engine
+1. Pull
+    * Description: pull image if not exist
+2. Build(not supported current)
+    * Description: if support server, build image and expose ports to transparent proxy
+3. Create
+    * Description: Create container, and get id
+4. Start
+    * Description: start container
 5. Run
-    * Description: Run the source
-    * Request:
-    ```proto
-    message RunRequest {
-        bool IsTheLastCase = 1;
-    }
-    ```
-    * Response:
-    ```proto
-    message RunResponse {
-
-    }
-    ```
-6. Cleanup
-    * Description: Run the source
-    * Request:
-    ```proto
-    message CleanupRequest {
-
-    }
-    ```
-    * Response:
-    ```proto
-    message CleanupResponse {
-
-    }
-    ```
-####
+    * Description: run shell to run the code in the sandbox
+6. Clean
+    * if the worker config changed, delete the container and image(not support)

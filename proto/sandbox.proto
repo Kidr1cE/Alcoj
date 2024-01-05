@@ -20,6 +20,7 @@ message SetEnvRequest {
     bool raw = 1;
     string image_name = 2;
     bytes dockerfile = 3;
+    bytes entryshell = 4;
 }
 message SetEnvResponse {
     bool status = 1;
@@ -35,6 +36,25 @@ message FileChunk {
 message UploadStatus {
     bool success = 1;
     string message = 2;
+}
+
+// Run
+message TestCase {
+    string input = 1;
+    string output = 2;
+}
+message TestResult {
+    string input = 1;
+    string output = 2;
+    string expected_output = 3;
+    int32 success = 4;
+    string error = 5;
+}
+message SimpleRunRequest {
+    repeated TestCase test_cases = 1;
+}
+message SimpleRunResponse {
+    repeated TestResult test_results = 1;
 }
 
 service Sandbox {

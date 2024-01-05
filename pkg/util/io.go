@@ -7,11 +7,10 @@ import (
 	"path/filepath"
 )
 
-func WriteDockerfile(content []byte) error {
-	DockerfilePath := docker.DockerfilePath
+func Write(content []byte, path string) error {
 	// if dockerfile not exist, create it
-	if _, err := os.Stat(DockerfilePath); os.IsNotExist(err) {
-		file, err := os.Create(DockerfilePath)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		file, err := os.Create(path)
 		if err != nil {
 			log.Println("create dockerfile error: ", err)
 			return err
@@ -20,7 +19,7 @@ func WriteDockerfile(content []byte) error {
 	}
 
 	// write content to dockerfile
-	file, err := os.OpenFile(DockerfilePath, os.O_WRONLY, 0644)
+	file, err := os.OpenFile(path, os.O_WRONLY, 0644)
 	if err != nil {
 		log.Println("open dockerfile error: ", err)
 		return err

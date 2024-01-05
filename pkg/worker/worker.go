@@ -13,10 +13,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-var dockerClient *docker.DockerWorker
+var dockerClient *docker.DockerClient
 
 type WorkerServer struct {
-	cli *docker.DockerWorker
+	cli *docker.DockerClient
 	pb.UnimplementedSandboxServer
 }
 
@@ -66,12 +66,13 @@ func (s *WorkerServer) GetDockerStatus(ctx context.Context, in *pb.GetStatusRequ
 	}, nil
 }
 
+// raw:true -> entryshell raw:false -> dockerfile
 func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.SetEnvResponse, error) {
 	log.Println("set env")
 
 	// if dockerfile is not raw, write it to dockerfile
 	if !in.Raw {
-		if err := util.WriteDockerfile(in.Dockerfile); err != nil {
+		if err := util.Write(in.Dockerfile, docker.DockerfilePath); err != nil {
 			return &pb.SetEnvResponse{
 				Status:  false,
 				Message: err.Error(),
@@ -86,12 +87,13 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 			}, nil
 		}
 	} else {
-		log.Println("pull image")
 		s.cli.Image = in.ImageName
-		lang, version := util.AnalysisImage(in.ImageName)
-		s.cli.Lang = lang
-		s.cli.Version = version
-		s.cli.Pull(ctx)
+		if err := util.Write(in.Entryshell, docker.EntryPath); err != nil {
+			return &pb.SetEnvResponse{
+				Status:  false,
+				Message: err.Error(),
+			}, nil
+		}
 	}
 
 	err := s.cli.Create(ctx)
@@ -109,6 +111,7 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 	}, nil
 }
 
+// send requirements to /app/source
 func (s *WorkerServer) SendRequirements(stream pb.Sandbox_SendRequirementsServer) error {
 	log.Println("send requirements")
 	var filename string

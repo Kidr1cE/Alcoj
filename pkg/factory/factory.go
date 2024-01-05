@@ -37,8 +37,9 @@ func StartServer() {
 
 	setenvResp, err := c.SetEnv(context.Background(), &pb.SetEnvRequest{
 		Raw:        true,
-		ImageName:  "python:3.8",
+		ImageName:  "python:3.6",
 		Dockerfile: []byte("d1as32d13as21d3a1sd2as"),
+		Entryshell: []byte("python /app/source/main.py"),
 	})
 	if err != nil {
 		log.Printf("could not SetEnv: %v", err)
