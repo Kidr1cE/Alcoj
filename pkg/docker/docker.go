@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/google/uuid"
 )
 
@@ -37,14 +37,15 @@ type Docker interface {
 }
 
 type DockerClient struct {
-	ID      string
-	Suffix  string
-	Image   string
-	Lang    string
-	Version string
-	Status  int
-	Raw     bool
-	cli     *client.Client
+	ID         string
+	Suffix     string
+	Image      string
+	Lang       string
+	Version    string
+	Status     int
+	Raw        bool
+	cli        *client.Client
+	execConfig types.ExecConfig
 }
 
 func NewWorker() (*DockerClient, error) {
@@ -129,13 +130,20 @@ func (d *DockerClient) Create(ctx context.Context) error {
 	if d.Raw {
 		resp, err = d.cli.ContainerCreate(ctx, &container.Config{
 			Image: d.Image,
-			// Entrypoint: []string{"bash", "/app/run.sh"},
 		}, &container.HostConfig{
 			Binds: []string{
 				AppFolderPath + ":/app",
 			},
 		}, nil, nil, d.Lang)
 
+		if err != nil {
+			return err
+		}
+		d.execConfig = types.ExecConfig{
+			AttachStdout: true,
+			AttachStderr: true,
+			Cmd:          []string{"bash", "-c", EntryPath + "/run.sh"},
+		}
 	} else {
 		resp, err = d.cli.ContainerCreate(ctx, &container.Config{
 			Image: d.Image,
@@ -155,7 +163,7 @@ func (d *DockerClient) Create(ctx context.Context) error {
 }
 
 // Run docker container
-func (d *DockerClient) Start(ctx context.Context, input string) (string, string) {
+func (d *DockerClient) Start(ctx context.Context, input string) error {
 	cli := d.cli
 
 	if err := cli.ContainerStart(ctx, d.ID, types.ContainerStartOptions{}); err != nil {
@@ -168,32 +176,26 @@ func (d *DockerClient) Start(ctx context.Context, input string) (string, string)
 	case err := <-errCh:
 		if err != nil {
 			log.Fatalf("Container wait failed: %v", err)
+			return err
 		}
 	case <-statusCh:
 	}
-
-	// get container logs/outputs
-	out, err := cli.ContainerLogs(ctx, d.ID, types.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
-	if err != nil {
-		log.Fatalf("Container get logs failed: %v", err)
-	}
-
-	var codeOutputs bytes.Buffer
-
-	_, err = stdcopy.StdCopy(&codeOutputs, &codeOutputs, out)
-	// _, err = stdcopy.StdCopy(&buf, &buf, out)
-
-	if err != nil {
-		log.Fatalf("StdCopy failed: %v", err)
-	}
-	return codeOutputs.String(), ""
+	return nil
 }
 
 func (d *DockerClient) Run(ctx context.Context) error {
-	// run /app/run.sh in running container
-	if err := d.cli.ContainerStart(ctx, d.ID, types.ContainerStartOptions{}); err != nil {
-		log.Fatalf("Container create failed: %v", err)
+	cli := d.cli
+	execID, err := cli.ContainerExecCreate(ctx, "container_name_or_id", d.execConfig)
+	if err != nil {
+		panic(err)
 	}
+	resp, err := cli.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Close()
+	// read outputs
+
 	return nil
 }
 
