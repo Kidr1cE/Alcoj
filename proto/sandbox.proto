@@ -62,4 +62,5 @@ service Sandbox {
     rpc GetDockerStatus(GetStatusRequest) returns (GetStatusResponse) {}
     rpc SetEnv(SetEnvRequest) returns (SetEnvResponse) {}
     rpc SendRequirements(stream FileChunk) returns (stream UploadStatus) {}
+    rpc SimpleRun(SimpleRunRequest) returns (SimpleRunResponse) {}
 }

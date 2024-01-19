@@ -1,27 +1,21 @@
 FROM golang:1.21.1 AS build
 
 WORKDIR /app
-
 COPY go.mod go.sum ./
 
 RUN go mod download
-
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o worker ./cmd/worker/main.go
 
-# Step 2
 
-# FROM docker
 FROM alpine:latest
 
 WORKDIR /app
-
-RUN mkdir /app/source
-RUN mkdir /app/entry
-RUN mkdir /app/dockerfile
-
 COPY --from=build /app/worker /app/worker
+
+VOLUME /sandbox
+RUN mkdir /app/dockerfile
 
 EXPOSE 50051
 

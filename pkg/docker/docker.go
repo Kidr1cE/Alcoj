@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -37,15 +36,13 @@ type Docker interface {
 }
 
 type DockerClient struct {
-	ID         string
-	Suffix     string
-	Image      string
-	Lang       string
-	Version    string
-	Status     int
-	Raw        bool
-	cli        *client.Client
-	execConfig types.ExecConfig
+	ID      string
+	Suffix  string
+	Image   string
+	Lang    string
+	Version string
+	Status  int
+	cli     *client.Client
 }
 
 func NewWorker() (*DockerClient, error) {
@@ -126,34 +123,17 @@ func (d *DockerClient) Build(ctx context.Context) error {
 // Create docker container
 func (d *DockerClient) Create(ctx context.Context) error {
 	var resp container.CreateResponse
-	var err error
-	if d.Raw {
-		resp, err = d.cli.ContainerCreate(ctx, &container.Config{
-			Image: d.Image,
-		}, &container.HostConfig{
-			Binds: []string{
-				AppFolderPath + ":/app",
-			},
-		}, nil, nil, d.Lang)
+	resp, err := d.cli.ContainerCreate(ctx, &container.Config{
+		Image:      d.Image,
+		WorkingDir: "/sandbox",
+		Cmd:        []string{"tail", "-f", "/dev/null"},
+	}, &container.HostConfig{
+		Binds: []string{
+			AppFolderPath + ":/app",
+			"sandbox:/sandbox",
+		},
+	}, nil, nil, "containerName")
 
-		if err != nil {
-			return err
-		}
-		d.execConfig = types.ExecConfig{
-			AttachStdout: true,
-			AttachStderr: true,
-			Cmd:          []string{"bash", "-c", EntryPath + "/run.sh"},
-		}
-	} else {
-		resp, err = d.cli.ContainerCreate(ctx, &container.Config{
-			Image: d.Image,
-			// Entrypoint: []string{"bash", "/app/run.sh"},
-		}, &container.HostConfig{
-			Binds: []string{
-				AppFolderPath + ":/app",
-			},
-		}, nil, nil, d.Lang)
-	}
 	if err != nil {
 		return err
 	}
@@ -170,33 +150,32 @@ func (d *DockerClient) Start(ctx context.Context, input string) error {
 		log.Fatalf("Container create failed: %v", err)
 	}
 
-	// wait
-	statusCh, errCh := cli.ContainerWait(ctx, d.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil {
-			log.Fatalf("Container wait failed: %v", err)
-			return err
-		}
-	case <-statusCh:
-	}
 	return nil
 }
 
-func (d *DockerClient) Run(ctx context.Context) error {
-	cli := d.cli
-	execID, err := cli.ContainerExecCreate(ctx, "container_name_or_id", d.execConfig)
-	if err != nil {
-		panic(err)
+func (d *DockerClient) Run(ctx context.Context) (string, error) {
+	execConfig := types.ExecConfig{
+		Cmd:          []string{"bash", "/sandbox" + "/run.sh"},
+		AttachStdout: true,
+		AttachStderr: true,
 	}
-	resp, err := cli.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
+
+	execID, err := d.cli.ContainerExecCreate(ctx, d.ID, execConfig)
 	if err != nil {
-		panic(err)
+		return "", err
+	}
+
+	resp, err := d.cli.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
+	if err != nil {
+		return "", err
 	}
 	defer resp.Close()
-	// read outputs
 
-	return nil
+	output, err := io.ReadAll(resp.Reader)
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
 }
 
 func (d *DockerClient) Clean(ctx context.Context) error {

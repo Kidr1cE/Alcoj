@@ -15,6 +15,8 @@ import (
 
 var dockerClient *docker.DockerClient
 
+var sandBoxWorkDir = "/app/source"
+
 type WorkerServer struct {
 	cli *docker.DockerClient
 	pb.UnimplementedSandboxServer
@@ -88,7 +90,7 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 		}
 	} else {
 		s.cli.Image = in.ImageName
-		if err := util.Write(in.Entryshell, docker.EntryPath); err != nil {
+		if err := util.Write(in.Entryshell, "/app/source/run.sh"); err != nil {
 			return &pb.SetEnvResponse{
 				Status:  false,
 				Message: err.Error(),
@@ -96,9 +98,18 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 		}
 	}
 
+	// Create container
 	err := s.cli.Create(ctx)
 	if err != nil {
 		log.Println("create error: ", err)
+		return &pb.SetEnvResponse{
+			Status:  false,
+			Message: err.Error(),
+		}, nil
+	}
+	err = s.cli.Start(ctx, "")
+	if err != nil {
+		log.Println("start error: ", err)
 		return &pb.SetEnvResponse{
 			Status:  false,
 			Message: err.Error(),
@@ -111,7 +122,7 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 	}, nil
 }
 
-// send requirements to /app/source
+// send requirements to /sandbox
 func (s *WorkerServer) SendRequirements(stream pb.Sandbox_SendRequirementsServer) error {
 	log.Println("send requirements")
 	var filename string
@@ -163,4 +174,22 @@ func (s *WorkerServer) SendRequirements(stream pb.Sandbox_SendRequirementsServer
 		}
 	}
 	return err
+}
+
+func (s *WorkerServer) SimpleRun(ctx context.Context, in *pb.SimpleRunRequest) (*pb.SimpleRunResponse, error) {
+	log.Println("simple run")
+	s.cli.Start(ctx, "")
+	result, err := s.cli.Run(ctx)
+	if err != nil {
+		log.Println("run error: ", err)
+		return nil, err
+	}
+	return &pb.SimpleRunResponse{
+		TestResults: []*pb.TestResult{
+			{
+				Output: result,
+				Error:  "",
+			},
+		},
+	}, nil
 }

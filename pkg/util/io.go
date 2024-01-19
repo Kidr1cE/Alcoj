@@ -8,7 +8,7 @@ import (
 )
 
 func Write(content []byte, path string) error {
-	// if dockerfile not exist, create it
+	// if file not exist, create it
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		file, err := os.Create(path)
 		if err != nil {

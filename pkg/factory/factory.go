@@ -26,8 +26,20 @@ func StartServer() {
 		return
 	}
 	log.Println(health)
-	// uploadFile(c, "GZ", "/home/alco/golang-project/golang-oj-worker/cmd/factory/shifu_cloud_frontend.tar.gz")
 
+	// Set env
+	setenvResp, err := c.SetEnv(context.Background(), &pb.SetEnvRequest{
+		Raw:        true,
+		ImageName:  "python:3.6",
+		Entryshell: []byte("python /sandbox/main.py"),
+	})
+	if err != nil {
+		log.Printf("could not SetEnv: %v", err)
+		return
+	}
+
+	// Send Requirements
+	uploadFile(c, "main.py", "/home/alco/go-project/Alcoj/cmd/factory/main.py")
 	dockerInfo, err := c.GetDockerStatus(context.Background(), &pb.GetStatusRequest{})
 	if err != nil {
 		log.Printf("could not GetDockerStatus: %v", err)
@@ -35,15 +47,13 @@ func StartServer() {
 	}
 	log.Println(dockerInfo)
 
-	setenvResp, err := c.SetEnv(context.Background(), &pb.SetEnvRequest{
-		Raw:        true,
-		ImageName:  "python:3.6",
-		Dockerfile: []byte("d1as32d13as21d3a1sd2as"),
-		Entryshell: []byte("python /app/source/main.py"),
-	})
+	// Run
+	res, err := c.SimpleRun(context.Background(), &pb.SimpleRunRequest{})
 	if err != nil {
-		log.Printf("could not SetEnv: %v", err)
+		log.Printf("could not SimpleRun: %v", err)
 		return
 	}
+	log.Println(res)
+
 	log.Println(setenvResp)
 }
