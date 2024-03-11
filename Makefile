@@ -8,3 +8,8 @@ docker-build-worker:
 	docker build -t worker -f dockerfiles/Dockerfile.worker .
 docker-run-worker:
 	docker run --privileged --name worker -p 50051:50051 -v /var/run/docker.sock:/var/run/docker.sock -v sandbox:/app/source -it worker
+
+debug-worker:
+	docker-build-worker
+	docker-run-worker
+	

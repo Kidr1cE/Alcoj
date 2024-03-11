@@ -10,12 +10,14 @@ import (
 	"log"
 	"net"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
 
-var dockerClient *docker.DockerClient
-
-var sandBoxWorkDir = "/app/source"
+var (
+	dockerClient *docker.DockerClient
+	//factory      = os.Getenv("FACTORY")
+)
 
 type WorkerServer struct {
 	cli *docker.DockerClient
@@ -34,7 +36,9 @@ func startServer() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	dockerClient, err = docker.NewWorker()
+
+	id := uuid.New().String()
+	dockerClient, err = docker.NewDocker(id)
 	if err != nil {
 		return
 	}
@@ -72,30 +76,13 @@ func (s *WorkerServer) GetDockerStatus(ctx context.Context, in *pb.GetStatusRequ
 func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.SetEnvResponse, error) {
 	log.Println("set env")
 
-	// if dockerfile is not raw, write it to dockerfile
-	if !in.Raw {
-		if err := util.Write(in.Dockerfile, docker.DockerfilePath); err != nil {
-			return &pb.SetEnvResponse{
-				Status:  false,
-				Message: err.Error(),
-			}, nil
-		}
-		s.cli.Image = in.ImageName
-		if err := s.cli.Build(ctx); err != nil {
-			log.Println("build error: ", err)
-			return &pb.SetEnvResponse{
-				Status:  false,
-				Message: err.Error(),
-			}, nil
-		}
-	} else {
-		s.cli.Image = in.ImageName
-		if err := util.Write(in.Entryshell, "/app/source/run.sh"); err != nil {
-			return &pb.SetEnvResponse{
-				Status:  false,
-				Message: err.Error(),
-			}, nil
-		}
+	// Create dockerfile
+	s.cli.Image = in.ImageName
+	if err := util.Write(in.Entryshell, "/app/source/run.sh"); err != nil {
+		return &pb.SetEnvResponse{
+			Status:  false,
+			Message: err.Error(),
+		}, nil
 	}
 
 	// Create container
@@ -122,6 +109,7 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 	}, nil
 }
 
+// !!!Currently do not support
 // send requirements to /sandbox
 func (s *WorkerServer) SendRequirements(stream pb.Sandbox_SendRequirementsServer) error {
 	log.Println("send requirements")
@@ -161,7 +149,7 @@ func (s *WorkerServer) SendRequirements(stream pb.Sandbox_SendRequirementsServer
 
 		if chunk.IsLastChunk {
 			log.Println("last chunk")
-			if err = util.WriteToAppFolder(filename, content); err != nil {
+			if err = util.Write(content, filename); err != nil {
 				stream.Send(&pb.UploadStatus{
 					Success: false,
 					Message: err.Error(),

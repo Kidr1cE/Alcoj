@@ -1,5 +1,11 @@
 # Alcoj
 ## Overview
+### Workflow
+
+```mermaid
+flowchart TD
+    Login --> Stop
+```
 ### Sequence diagrams
 ``` mermaid
 ---

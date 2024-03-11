@@ -1,16 +1,24 @@
 # Worker
 ## Overview
-The service should be created by Factory  
-This module is the smallest OJ unit, each unit maintains a sanbox Container internally  
+The service should be created by admin  
+This module is the smallest OJ unit, each unit maintains a sandbox Container internally  
 This unit receives topic submissions and returns output + runtime information  
 or expose object service ports
 ## Global Design
+``` mermaid
+---
+title: Interactive
+---
+sequenceDiagram
+    Workers->>Factory: Register
+    Factory->>Workers: Dockerfile & runner.sh
+```
 ### Docker
 ```go
 type Docker struct {
-    ID      string
-    Image   string
-    Lang    string
+    ID      string  // uuid
+    Image   string  // 
+    ContainerID string
     Version string
     Entry   int             // 0 shell, 1 
     cli     *client.Client  // private client
@@ -32,7 +40,7 @@ flowchart TD
     Building-->NoSource[NoSource]
     Raw-->NoSource
     NoSource--Cleanup-->Raw
-    NoSource--SendReuirements(Souece)-->Ready[Ready]
+    NoSource--SendRequirements(Source)-->Ready[Ready]
     Ready--Running-->Running[Running]
     Running-->Ready
     Running-->NoSource
