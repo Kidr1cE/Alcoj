@@ -22,7 +22,7 @@ type PylintMessage struct {
 	Message    string // Argument name "columnPosition" doesn't conform to snake_case naming style
 }
 
-func parsePylintOutput(output string) []PylintMessage {
+func ParsePylintOutput(output string) []PylintMessage {
 	messages := []PylintMessage{}
 	reg := regexp.MustCompile(`(\d+):(\d+):\s+(\w+)\:\s+(.+)`)
 	matches := reg.FindAllString(output, -1)
@@ -67,7 +67,7 @@ func runPylint(scriptPath string) ([]PylintMessage, error) {
 		return []PylintMessage{}, err
 	}
 
-	return parsePylintOutput(out.String()), nil
+	return ParsePylintOutput(out.String()), nil
 }
 
 func AnalysisPython(scriptPath string) (Result, error) {

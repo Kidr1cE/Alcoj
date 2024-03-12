@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"alcoj/pkg/analysis"
 	"alcoj/pkg/docker"
 	"alcoj/pkg/util"
 	pb "alcoj/proto"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -20,7 +22,8 @@ var (
 )
 
 type WorkerServer struct {
-	cli *docker.DockerClient
+	cli        *docker.DockerClient
+	entryShell []string
 	pb.UnimplementedSandboxServer
 }
 
@@ -76,15 +79,6 @@ func (s *WorkerServer) GetDockerStatus(ctx context.Context, in *pb.GetStatusRequ
 func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.SetEnvResponse, error) {
 	log.Println("set env")
 
-	// Create dockerfile
-	s.cli.Image = in.ImageName
-	if err := util.Write(in.Entryshell, "/app/source/run.sh"); err != nil {
-		return &pb.SetEnvResponse{
-			Status:  false,
-			Message: err.Error(),
-		}, nil
-	}
-
 	// Create container
 	err := s.cli.Create(ctx)
 	if err != nil {
@@ -94,7 +88,7 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 			Message: err.Error(),
 		}, nil
 	}
-	err = s.cli.Start(ctx, "")
+	err = s.cli.Start(ctx)
 	if err != nil {
 		log.Println("start error: ", err)
 		return &pb.SetEnvResponse{
@@ -166,7 +160,7 @@ func (s *WorkerServer) SendRequirements(stream pb.Sandbox_SendRequirementsServer
 
 func (s *WorkerServer) SimpleRun(ctx context.Context, in *pb.SimpleRunRequest) (*pb.SimpleRunResponse, error) {
 	log.Println("simple run")
-	s.cli.Start(ctx, "")
+	s.cli.Start(ctx)
 	result, err := s.cli.Run(ctx)
 	if err != nil {
 		log.Println("run error: ", err)
@@ -180,4 +174,30 @@ func (s *WorkerServer) SimpleRun(ctx context.Context, in *pb.SimpleRunRequest) (
 			},
 		},
 	}, nil
+}
+
+func (s *WorkerServer) runAndTime(ctx context.Context) error {
+	output, err := s.cli.Cmd(ctx, []string{"/usr/bin/time", "-v", "ps"})
+	if err != nil {
+		log.Printf("Cmd() failed: %v", err)
+		return err
+	}
+	log.Println("output: ", output)
+
+	lines := strings.Split(output, "\n")
+
+	timeMessage := analysis.TimeMessage{}
+	commandOutputs := lines[0 : len(lines)-24]
+	timeOutputs := lines[len(lines)-24:]
+	for _, line := range timeOutputs {
+		analysis.ParseTimeLine(line, &timeMessage)
+	}
+
+	log.Println("timeMessage: ", timeMessage)
+	log.Println("commandOutputs:")
+	for _, output := range commandOutputs {
+		log.Println(output)
+	}
+
+	return nil
 }

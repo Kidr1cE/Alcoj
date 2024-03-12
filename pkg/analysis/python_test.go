@@ -13,4 +13,5 @@ func TestAnalysisPython(t *testing.T) {
 		t.Errorf("Error running AnalysisPython: %v", err)
 	}
 	log.Println("Result: ", result)
+
 }
