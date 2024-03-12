@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/mattn/go-colorable"
+	"github.com/mattn/go-isatty"
 )
 
 const (
@@ -101,7 +104,7 @@ func (d *DockerClient) Create(ctx context.Context) error {
 }
 
 // Run docker container
-func (d *DockerClient) Start(ctx context.Context, input string) error {
+func (d *DockerClient) Start(ctx context.Context) error {
 	cli := d.cli
 
 	if err := cli.ContainerStart(ctx, d.ContainerID, types.ContainerStartOptions{}); err != nil {
@@ -136,31 +139,52 @@ func (d *DockerClient) Run(ctx context.Context) (string, error) {
 	return string(output), nil
 }
 
-func (d *DockerClient) Cmd(ctx context.Context, cmd []string) (string, string, error) {
+func (d *DockerClient) Cmd(ctx context.Context, cmd []string) (string, error) {
 	execConfig := types.ExecConfig{
 		Cmd:          cmd,
 		AttachStdout: true,
 		AttachStderr: true,
+		Tty:          true,
 	}
 
-	execID, err := d.cli.ContainerExecCreate(ctx, d.ID, execConfig)
+	execID, err := d.cli.ContainerExecCreate(ctx, d.ContainerID, execConfig)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create exec instance in container: %w", err)
+		return "", fmt.Errorf("failed to create exec instance in container: %w", err)
 	}
 
-	resp, err := d.cli.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
+	resp, err := d.cli.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{
+		Tty: true,
+	})
+	d.cli.ContainerExecStart(ctx, execID.ID, types.ExecStartCheck{})
 	if err != nil {
-		return "", "", fmt.Errorf("failed to attach to exec instance: %w", err)
+		return "", fmt.Errorf("failed to attach to exec instance: %w", err)
 	}
 	defer resp.Close()
 
-	return "", "", nil
+	output, err := io.ReadAll(resp.Reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to read exec output: %w", err)
+	}
+
+	output = cleanOutput(output)
+
+	return string(output), nil
+}
+
+func cleanOutput(input []byte) []byte {
+	if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+		writer := colorable.NewNonColorable(os.Stdout)
+		_, _ = writer.Write(input)
+		return input
+	}
+
+	return input
 }
 
 func (d *DockerClient) Clean(ctx context.Context) error {
 	cli := d.cli
-	if err := cli.ContainerRemove(ctx, d.ID, types.ContainerRemoveOptions{}); err != nil {
-		return err
-	}
+	cli.ContainerRemove(ctx, d.ContainerID, types.ContainerRemoveOptions{
+		Force: true,
+	})
 	return nil
 }
