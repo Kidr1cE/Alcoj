@@ -1,4 +1,4 @@
-package factory
+package master
 
 import (
 	"context"
@@ -19,6 +19,7 @@ func StartServer() {
 	defer conn.Close()
 	c := pb.NewSandboxClient(conn)
 
+	// HealthCheck
 	req := &pb.HealthCheckRequest{}
 	health, err := c.HealthCheck(context.Background(), req)
 	if err != nil {
@@ -29,26 +30,18 @@ func StartServer() {
 
 	// Set env
 	setenvResp, err := c.SetEnv(context.Background(), &pb.SetEnvRequest{
-		Raw:        true,
-		ImageName:  "python:3.6",
-		Entryshell: []byte("python /sandbox/main.py"),
+		ImageName:  "worker-python:v0.0.1",
+		Entryshell: "python",
 	})
 	if err != nil {
 		log.Printf("could not SetEnv: %v", err)
 		return
 	}
 
-	// Send Requirements
-	uploadFile(c, "main.py", "/home/alco/go-project/Alcoj/cmd/factory/main.py")
-	dockerInfo, err := c.GetDockerStatus(context.Background(), &pb.GetStatusRequest{})
-	if err != nil {
-		log.Printf("could not GetDockerStatus: %v", err)
-		return
-	}
-	log.Println(dockerInfo)
-
 	// Run
-	res, err := c.SimpleRun(context.Background(), &pb.SimpleRunRequest{})
+	res, err := c.SimpleRun(context.Background(), &pb.SimpleRunRequest{
+		Filename: "main.py",
+	})
 	if err != nil {
 		log.Printf("could not SimpleRun: %v", err)
 		return

@@ -17,10 +17,8 @@ message GetStatusResponse{
 
 // SetEnv
 message SetEnvRequest {
-    bool raw = 1;
-    string image_name = 2;
-    bytes dockerfile = 3;
-    bytes entryshell = 4;
+    string image_name = 1;
+    string entryshell = 2;
 }
 message SetEnvResponse {
     bool status = 1;
@@ -51,7 +49,8 @@ message TestResult {
     string error = 5;
 }
 message SimpleRunRequest {
-    repeated TestCase test_cases = 1;
+    string filename = 1;
+    string input = 2;
 }
 message SimpleRunResponse {
     repeated TestResult test_results = 1;

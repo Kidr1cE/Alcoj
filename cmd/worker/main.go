@@ -6,6 +6,9 @@ import (
 
 func main() {
 	stop := make(chan struct{})
-	go worker.Run(stop)
+	go func() {
+		worker.Run(stop)
+		defer close(stop)
+	}()
 	<-stop
 }

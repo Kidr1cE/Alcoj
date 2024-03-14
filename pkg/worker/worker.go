@@ -3,7 +3,6 @@ package worker
 import (
 	"alcoj/pkg/analysis"
 	"alcoj/pkg/docker"
-	"alcoj/pkg/util"
 	pb "alcoj/proto"
 	"context"
 	"flag"
@@ -18,12 +17,13 @@ import (
 
 var (
 	dockerClient *docker.DockerClient
-	//factory      = os.Getenv("FACTORY")
+	timeBash     = []string{"/usr/bin/time", "-v"}
 )
 
 type WorkerServer struct {
-	cli        *docker.DockerClient
-	entryShell []string
+	cli           *docker.DockerClient
+	entryShell    []string
+	filenameIndex int
 	pb.UnimplementedSandboxServer
 }
 
@@ -50,6 +50,7 @@ func startServer() {
 	pb.RegisterSandboxServer(s, &WorkerServer{
 		cli: dockerClient,
 	})
+
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
@@ -77,10 +78,14 @@ func (s *WorkerServer) GetDockerStatus(ctx context.Context, in *pb.GetStatusRequ
 
 // raw:true -> entryshell raw:false -> dockerfile
 func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.SetEnvResponse, error) {
-	log.Println("set env")
+	s.cli.Image = in.ImageName
+	s.entryShell = append(timeBash, strings.Split(in.Entryshell, " ")...)
+	s.entryShell = append(s.entryShell, "nothing")
+	s.filenameIndex = len(s.entryShell) - 1
 
 	// Create container
-	err := s.cli.Create(ctx)
+	uuid := uuid.New().String()
+	err := s.cli.Create(ctx, uuid)
 	if err != nil {
 		log.Println("create error: ", err)
 		return &pb.SetEnvResponse{
@@ -88,6 +93,7 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 			Message: err.Error(),
 		}, nil
 	}
+
 	err = s.cli.Start(ctx)
 	if err != nil {
 		log.Println("start error: ", err)
@@ -103,81 +109,28 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 	}, nil
 }
 
-// !!!Currently do not support
-// send requirements to /sandbox
-func (s *WorkerServer) SendRequirements(stream pb.Sandbox_SendRequirementsServer) error {
-	log.Println("send requirements")
-	var filename string
-	var content = []byte{}
-	var err error
-	for {
-		// get chunk
-		chunk, err := stream.Recv()
-		if err != nil {
-			log.Println("recv error: ", err)
-			stream.Send(&pb.UploadStatus{
-				Success: false,
-				Message: err.Error(),
-			})
-			break
-		}
-
-		// check if it is a new file
-		if chunk.Filename != filename {
-			content = []byte{}
-			filename = chunk.Filename
-			log.Println("new file: ", filename)
-		} else {
-			log.Println("same file: ", filename)
-		}
-
-		content = append(content, chunk.Content...)
-
-		if err := stream.Send(&pb.UploadStatus{Success: true}); err != nil {
-			log.Println("send error: ", err)
-			stream.Send(&pb.UploadStatus{
-				Success: false,
-				Message: err.Error(),
-			})
-		}
-
-		if chunk.IsLastChunk {
-			log.Println("last chunk")
-			if err = util.Write(content, filename); err != nil {
-				stream.Send(&pb.UploadStatus{
-					Success: false,
-					Message: err.Error(),
-				})
-				log.Println("write to app folder error: ", err)
-				break
-			}
-			stream.Send(&pb.UploadStatus{Success: true})
-			return nil
-		}
-	}
-	return err
-}
-
 func (s *WorkerServer) SimpleRun(ctx context.Context, in *pb.SimpleRunRequest) (*pb.SimpleRunResponse, error) {
-	log.Println("simple run")
-	s.cli.Start(ctx)
-	result, err := s.cli.Run(ctx)
-	if err != nil {
-		log.Println("run error: ", err)
-		return nil, err
+	s.entryShell[s.filenameIndex] = in.Filename
+	if err := s.runAndTime(ctx, in.Filename); err != nil {
+		return &pb.SimpleRunResponse{}, err
 	}
+	if err := s.runAndPylint(ctx, in.Filename); err != nil {
+		return &pb.SimpleRunResponse{}, err
+	}
+
 	return &pb.SimpleRunResponse{
 		TestResults: []*pb.TestResult{
 			{
-				Output: result,
+				Output: "output",
 				Error:  "",
 			},
 		},
 	}, nil
 }
 
-func (s *WorkerServer) runAndTime(ctx context.Context) error {
-	output, err := s.cli.Cmd(ctx, []string{"/usr/bin/time", "-v", "ps"})
+func (s *WorkerServer) runAndTime(ctx context.Context, filename string) error {
+	s.entryShell[s.filenameIndex] = filename
+	output, err := s.cli.Cmd(ctx, s.entryShell)
 	if err != nil {
 		log.Printf("Cmd() failed: %v", err)
 		return err
@@ -194,10 +147,24 @@ func (s *WorkerServer) runAndTime(ctx context.Context) error {
 	}
 
 	log.Println("timeMessage: ", timeMessage)
-	log.Println("commandOutputs:")
+	log.Println("commandOutputs:", commandOutputs)
 	for _, output := range commandOutputs {
 		log.Println(output)
 	}
 
+	return nil
+}
+
+func (s *WorkerServer) runAndPylint(ctx context.Context, filename string) error {
+	output, err := s.cli.Cmd(ctx, []string{"pylint", filename})
+	if err != nil {
+		log.Printf("Cmd() failed: %v", err)
+		return err
+	}
+	log.Println("output: ", output)
+	pylintOutputs := analysis.ParsePylintOutput(output)
+	for _, message := range pylintOutputs {
+		log.Println(message.Column, message.ErrorCode, message.LineNumber, message.Message)
+	}
 	return nil
 }

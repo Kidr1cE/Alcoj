@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -22,11 +23,12 @@ const (
 )
 
 type DockerClient struct {
-	ID          string
-	Image       string
-	ContainerID string
-	Status      int
-	cli         *client.Client
+	ID            string
+	Image         string
+	ContainerID   string
+	ContainerName string
+	Status        int
+	cli           *client.Client
 }
 
 func NewDocker(id string) (*DockerClient, error) {
@@ -82,9 +84,14 @@ func (d *DockerClient) CheckContainerHealth(ctx context.Context) (bool, error) {
 }
 
 // Create docker container
-func (d *DockerClient) Create(ctx context.Context) error {
-	var resp container.CreateResponse
+func (d *DockerClient) Create(ctx context.Context, id string) error {
+	// generate container name
+	imageName := strings.Split(d.Image, ":")[0]
+	preID := strings.Split(id, "-")[0]
+	containerName := fmt.Sprintf("%s-%s", imageName, preID)
+	d.ContainerName = containerName
 
+	// create container
 	resp, err := d.cli.ContainerCreate(ctx, &container.Config{
 		Image:      d.Image,
 		WorkingDir: "/sandbox",
@@ -93,7 +100,7 @@ func (d *DockerClient) Create(ctx context.Context) error {
 		Binds: []string{
 			"sandbox:/sandbox",
 		},
-	}, nil, nil, "containerName")
+	}, nil, nil, containerName)
 
 	if err != nil {
 		return err
