@@ -32,6 +32,7 @@ func StartServer() {
 	setenvResp, err := c.SetEnv(context.Background(), &pb.SetEnvRequest{
 		ImageName:  "worker-python:v0.0.1",
 		Entryshell: "python",
+		Language:   "python",
 	})
 	if err != nil {
 		log.Printf("could not SetEnv: %v", err)
@@ -41,6 +42,7 @@ func StartServer() {
 	// Run
 	res, err := c.SimpleRun(context.Background(), &pb.SimpleRunRequest{
 		Filename: "main.py",
+		Input:    "12\n23\n",
 	})
 	if err != nil {
 		log.Printf("could not SimpleRun: %v", err)

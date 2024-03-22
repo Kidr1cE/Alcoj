@@ -24,6 +24,8 @@ type WorkerServer struct {
 	cli           *docker.DockerClient
 	entryShell    []string
 	filenameIndex int
+	analysis      analysis.AnalysisInterface
+	runner        analysis.Runner
 	pb.UnimplementedSandboxServer
 }
 
@@ -83,6 +85,20 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 	s.entryShell = append(s.entryShell, "nothing")
 	s.filenameIndex = len(s.entryShell) - 1
 
+	switch in.Language {
+	case "python":
+		s.analysis = &analysis.PythonAnalysis{}
+	case "golang":
+		s.analysis = &analysis.GoAnalysis{}
+	default:
+		return &pb.SetEnvResponse{
+			Status:  false,
+			Message: "unsupported language",
+		}, nil
+	}
+
+	s.runner = analysis.Runner{}
+
 	// Create container
 	uuid := uuid.New().String()
 	err := s.cli.Create(ctx, uuid)
@@ -111,60 +127,38 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 
 func (s *WorkerServer) SimpleRun(ctx context.Context, in *pb.SimpleRunRequest) (*pb.SimpleRunResponse, error) {
 	s.entryShell[s.filenameIndex] = in.Filename
-	if err := s.runAndTime(ctx, in.Filename); err != nil {
+	output, timeMessage, err := s.runner.RunTime(s.cli, in.Filename, s.entryShell, in.Input)
+	if err != nil {
 		return &pb.SimpleRunResponse{}, err
 	}
-	if err := s.runAndPylint(ctx, in.Filename); err != nil {
+	ts := &pb.TimeResult{
+		SystemTimeSeconds:   timeMessage.SystemTimeSeconds,
+		UserTimeSeconds:     timeMessage.UserTimeSeconds,
+		PercentCpu:          timeMessage.PercentCPU,
+		AvgSharedTextSize:   timeMessage.AvgSharedTextSize,
+		AvgUnsharedDataSize: timeMessage.AvgUnsharedDataSize,
+		MaxResidentSetSize:  timeMessage.MaxResidentSetSize,
+		FileSystemInputs:    timeMessage.FileSystemInputs,
+		FileSystemOutputs:   timeMessage.FileSystemOutputs,
+		ExitStatus:          timeMessage.ExitStatus,
+	}
+
+	linterMessage, err := s.analysis.Analyze(s.cli, in.Filename)
+	if err != nil {
 		return &pb.SimpleRunResponse{}, err
+	}
+	ar := make([]*pb.AnalysisResult, len(linterMessage))
+	for i, v := range linterMessage {
+		ar[i] = &pb.AnalysisResult{
+			Row:     int32(v.Row),
+			Column:  int32(v.Column),
+			Message: v.Message,
+		}
 	}
 
 	return &pb.SimpleRunResponse{
-		TestResults: []*pb.TestResult{
-			{
-				Output: "output",
-				Error:  "",
-			},
-		},
+		Output:          output,
+		AnalysisResults: ar,
+		TimeResult:      ts,
 	}, nil
-}
-
-func (s *WorkerServer) runAndTime(ctx context.Context, filename string) error {
-	s.entryShell[s.filenameIndex] = filename
-	output, err := s.cli.Cmd(ctx, s.entryShell)
-	if err != nil {
-		log.Printf("Cmd() failed: %v", err)
-		return err
-	}
-	log.Println("output: ", output)
-
-	lines := strings.Split(output, "\n")
-
-	timeMessage := analysis.TimeMessage{}
-	commandOutputs := lines[0 : len(lines)-24]
-	timeOutputs := lines[len(lines)-24:]
-	for _, line := range timeOutputs {
-		analysis.ParseTimeLine(line, &timeMessage)
-	}
-
-	log.Println("timeMessage: ", timeMessage)
-	log.Println("commandOutputs:", commandOutputs)
-	for _, output := range commandOutputs {
-		log.Println(output)
-	}
-
-	return nil
-}
-
-func (s *WorkerServer) runAndPylint(ctx context.Context, filename string) error {
-	output, err := s.cli.Cmd(ctx, []string{"pylint", filename})
-	if err != nil {
-		log.Printf("Cmd() failed: %v", err)
-		return err
-	}
-	log.Println("output: ", output)
-	pylintOutputs := analysis.ParsePylintOutput(output)
-	for _, message := range pylintOutputs {
-		log.Println(message.Column, message.ErrorCode, message.LineNumber, message.Message)
-	}
-	return nil
 }

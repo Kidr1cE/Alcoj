@@ -1,9 +1,6 @@
-package analysis
+package worker
 
 import (
-	"alcoj/pkg/docker"
-	"context"
-	"log"
 	"strings"
 )
 
@@ -30,44 +27,6 @@ type TimeMessage struct {
 	SocketMessagesRecv  string
 	PageSize            string
 	ExitStatus          string
-}
-
-type TimeInterface interface {
-	RunTime(cli *docker.DockerClient, filename string, cmd []string) (string, TimeMessage, error)
-}
-
-type Runner struct{}
-
-func (*Runner) RunTime(cli *docker.DockerClient, filename string, cmd []string, input string) (string, TimeMessage, error) {
-	ctx := context.Background()
-	output, err := cli.Cmd(ctx, cmd, input)
-	if err != nil {
-		log.Printf("Cmd() failed: %v", err)
-		return "", TimeMessage{}, err
-	}
-
-	lines := strings.Split(output, "\n")
-
-	timeMessage := TimeMessage{}
-	commandOutputs := parseOutput(lines[0 : len(lines)-24])
-	timeOutputs := lines[len(lines)-24:]
-	for _, line := range timeOutputs {
-		parseTimeLine(line, &timeMessage)
-	}
-
-	log.Println("timeMessage: ", timeMessage)
-	log.Println("commandOutputs:", commandOutputs)
-
-	return commandOutputs, timeMessage, nil
-}
-
-func parseOutput(lines []string) string {
-	var outputBuffer strings.Builder
-	for _, line := range lines {
-		outputBuffer.WriteString(line)
-		outputBuffer.WriteString("\n")
-	}
-	return outputBuffer.String()
 }
 
 func parseTimeLine(line string, timeMessage *TimeMessage) bool {

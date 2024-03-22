@@ -146,9 +146,15 @@ func (d *DockerClient) Run(ctx context.Context) (string, error) {
 	return string(output), nil
 }
 
-func (d *DockerClient) Cmd(ctx context.Context, cmd []string) (string, error) {
+func (d *DockerClient) Cmd(ctx context.Context, cmd []string, input string) (string, error) {
+	inputKey := false
+	if len(input) > 0 {
+		inputKey = true
+	}
+
 	execConfig := types.ExecConfig{
 		Cmd:          cmd,
+		AttachStdin:  inputKey,
 		AttachStdout: true,
 		AttachStderr: true,
 		Tty:          true,
@@ -165,6 +171,13 @@ func (d *DockerClient) Cmd(ctx context.Context, cmd []string) (string, error) {
 	d.cli.ContainerExecStart(ctx, execID.ID, types.ExecStartCheck{})
 	if err != nil {
 		return "", fmt.Errorf("failed to attach to exec instance: %w", err)
+	}
+
+	if inputKey {
+		_, err = resp.Conn.Write([]byte(input))
+		if err != nil {
+			return "", fmt.Errorf("failed to write input to exec instance: %w", err)
+		}
 	}
 	defer resp.Close()
 

@@ -12,9 +12,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o worker ./cmd/worker/main.go
 FROM alpine:latest
 
 WORKDIR /app
+
 COPY --from=build /app/worker /app/worker
 
 VOLUME /sandbox
+
 RUN mkdir /app/dockerfile
 
 EXPOSE 50051

@@ -19,47 +19,47 @@ message GetStatusResponse{
 message SetEnvRequest {
     string image_name = 1;
     string entryshell = 2;
+    string language = 3;    // python3, golang
 }
+
 message SetEnvResponse {
     bool status = 1;
     string message = 2;
 }
 
-// SendRequirements
-message FileChunk {
-    string filename = 1;
-    bytes content = 2;
-    bool is_last_chunk = 3;
-}
-message UploadStatus {
-    bool success = 1;
-    string message = 2;
+// Run
+message AnalysisResult {
+    int32 Row = 1;
+    int32 Column = 2;
+    string Message = 3;
 }
 
-// Run
-message TestCase {
-    string input = 1;
-    string output = 2;
+message TimeResult {
+    string system_time_seconds = 1;
+    string user_time_seconds = 2;
+    string percent_cpu = 3;
+    string avg_shared_text_size = 4;
+    string avg_unshared_data_size = 5;
+    string max_resident_set_size = 6;
+    string file_system_inputs = 7;
+    string file_system_outputs = 8;
+    string exit_status = 9;
 }
-message TestResult {
-    string input = 1;
-    string output = 2;
-    string expected_output = 3;
-    int32 success = 4;
-    string error = 5;
-}
+
 message SimpleRunRequest {
     string filename = 1;
     string input = 2;
 }
+
 message SimpleRunResponse {
-    repeated TestResult test_results = 1;
+    string output = 1;
+    repeated AnalysisResult analysis_results = 2;
+    TimeResult time_result = 3;
 }
 
 service Sandbox {
     rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse) {}
     rpc GetDockerStatus(GetStatusRequest) returns (GetStatusResponse) {}
     rpc SetEnv(SetEnvRequest) returns (SetEnvResponse) {}
-    rpc SendRequirements(stream FileChunk) returns (stream UploadStatus) {}
     rpc SimpleRun(SimpleRunRequest) returns (SimpleRunResponse) {}
 }
