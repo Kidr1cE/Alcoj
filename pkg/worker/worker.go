@@ -49,9 +49,10 @@ func startServer() {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterSandboxServer(s, &WorkerServer{
+	ws := &WorkerServer{
 		cli: dockerClient,
-	})
+	}
+	pb.RegisterSandboxServer(s, ws)
 
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
@@ -89,7 +90,7 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 	case "python":
 		s.analysis = &analysis.PythonAnalysis{}
 	case "golang":
-		s.analysis = &analysis.GoAnalysis{}
+		s.analysis = &analysis.GolangAnalysis{}
 	default:
 		return &pb.SetEnvResponse{
 			Status:  false,

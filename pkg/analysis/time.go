@@ -8,28 +8,28 @@ import (
 )
 
 type TimeMessage struct {
-	Command             string
-	SystemTimeSeconds   string
-	UserTimeSeconds     string
-	PercentCPU          string
-	ElapsedWallClock    string
-	AvgSharedTextSize   string
-	AvgUnsharedDataSize string
-	AvgStackSize        string
-	AvgTotalSize        string
-	MaxResidentSetSize  string
-	AvgResidentSetSize  string
-	MajorPageFaults     string
-	MinorPageFaults     string
-	VoluntarySwitches   string
-	InvoluntarySwitches string
-	Swaps               string
-	FileSystemInputs    string
-	FileSystemOutputs   string
-	SocketMessagesSent  string
-	SocketMessagesRecv  string
-	PageSize            string
-	ExitStatus          string
+	Command             string `json:"command,omitempty"`
+	SystemTimeSeconds   string `json:"system_time_seconds,omitempty"`
+	UserTimeSeconds     string `json:"user_time_seconds,omitempty"`
+	PercentCPU          string `json:"percent_cpu,omitempty"`
+	ElapsedWallClock    string `json:"elapsed_wall_clock,omitempty"`
+	AvgSharedTextSize   string `json:"avg_shared_text_size,omitempty"`
+	AvgUnsharedDataSize string `json:"avg_unshared_data_size,omitempty"`
+	AvgStackSize        string `json:"avg_stack_size,omitempty"`
+	AvgTotalSize        string `json:"avg_total_size,omitempty"`
+	MaxResidentSetSize  string `json:"max_resident_set_size,omitempty"`
+	AvgResidentSetSize  string `json:"avg_resident_set_size,omitempty"`
+	MajorPageFaults     string `json:"major_page_faults,omitempty"`
+	MinorPageFaults     string `json:"minor_page_faults,omitempty"`
+	VoluntarySwitches   string `json:"voluntary_switches,omitempty"`
+	InvoluntarySwitches string `json:"involuntary_switches,omitempty"`
+	Swaps               string `json:"swaps,omitempty"`
+	FileSystemInputs    string `json:"file_system_inputs,omitempty"`
+	FileSystemOutputs   string `json:"file_system_outputs,omitempty"`
+	SocketMessagesSent  string `json:"socket_messages_sent,omitempty"`
+	SocketMessagesRecv  string `json:"socket_messages_recv,omitempty"`
+	PageSize            string `json:"page_size,omitempty"`
+	ExitStatus          string `json:"exit_status,omitempty"`
 }
 
 type TimeInterface interface {

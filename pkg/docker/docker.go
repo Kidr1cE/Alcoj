@@ -203,8 +203,13 @@ func cleanOutput(input []byte) []byte {
 
 func (d *DockerClient) Clean(ctx context.Context) error {
 	cli := d.cli
-	cli.ContainerRemove(ctx, d.ContainerID, types.ContainerRemoveOptions{
+	if err := cli.ContainerStop(ctx, d.ContainerID, container.StopOptions{}); err != nil {
+		return err
+	}
+	if err := cli.ContainerRemove(ctx, d.ContainerID, types.ContainerRemoveOptions{
 		Force: true,
-	})
+	}); err != nil {
+		return err
+	}
 	return nil
 }

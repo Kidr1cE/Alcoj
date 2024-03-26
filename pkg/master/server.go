@@ -1,1 +1,71 @@
 package master
+
+import (
+	"alcoj/pkg/analysis"
+	"encoding/json"
+	"log"
+	"net/http"
+)
+
+type Request struct {
+	Code            string `json:"code"`
+	Language        string `json:"language"`
+	Input           string `json:"input"`
+	RuntimeAnalysis bool   `json:"runtime_analysis"`
+	StaticAnalysis  bool   `json:"static_analysis"`
+}
+
+type Response struct {
+	Output          string                   `json:"output"`
+	StaticAnalysis  []analysis.LinterMessage `json:"static_analysis"`
+	RuntimeAnalysis analysis.TimeMessage     `json:"runtime_analysis"`
+}
+
+func startHttpServer() {
+	http.HandleFunc("/alcoj/api/v1", alcojHandler)
+	log.Println("Starting server on :8080")
+	http.ListenAndServe(":8080", nil)
+}
+
+func alcojHandler(w http.ResponseWriter, r *http.Request) {
+	handleCORS(w, r)
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req Request
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Println("Request received: ", req)
+
+	// Run
+	res, err := master.Run(req.Language, req.Code, req.Input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Write response
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func registerWorkerHanlder(w http.ResponseWriter, r *http.Request) {
+	// Register worker
+}
+
+func handleCORS(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+}
