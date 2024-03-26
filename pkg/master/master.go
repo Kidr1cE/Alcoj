@@ -25,7 +25,7 @@ var (
 
 func StartServer() {
 	var err error
-	master, err = NewMaster("127.0.0.1:50051")
+	master, err = NewMaster("host.docker.internal:50051", ".py")
 	if err != nil {
 		log.Printf("could not create master: %v", err)
 		return
@@ -77,7 +77,7 @@ func StartServer() {
 	startHttpServer()
 }
 
-func NewMaster(address string) (*Master, error) {
+func NewMaster(address string, suffix string) (*Master, error) {
 	// Connect to pb server
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -87,8 +87,9 @@ func NewMaster(address string) (*Master, error) {
 
 	c := pb.NewSandboxClient(conn)
 	master = &Master{
-		conn:  conn,
-		pbCli: c,
+		conn:   conn,
+		pbCli:  c,
+		suffix: suffix,
 	}
 	return master, nil
 }
@@ -100,7 +101,7 @@ func (m *Master) Close() {
 func (m *Master) Run(language string, code string, input string) (Response, error) {
 	// Write code to file
 	filename := uuid.New().String() + m.suffix
-	err := os.WriteFile(filename, []byte(code), 0644)
+	err := os.WriteFile("/sandbox/"+filename, []byte(code), 0644)
 	if err != nil {
 		return Response{}, err
 	}

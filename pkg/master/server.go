@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type Request struct {
@@ -48,6 +49,11 @@ func alcojHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	log.Println("response: ", res.Output)
+
+	// Remove input from output's head
+	prefix := strings.Replace(req.Input, "\n", "\r\n", -1)
+	res.Output = strings.TrimPrefix(res.Output, prefix)
 
 	// Write response
 	if err := json.NewEncoder(w).Encode(res); err != nil {
