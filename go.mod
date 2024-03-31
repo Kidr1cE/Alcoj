@@ -5,6 +5,7 @@ go 1.21.1
 require (
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/google/uuid v1.3.1
+	github.com/gorilla/websocket v1.5.1
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
 	google.golang.org/grpc v1.60.1

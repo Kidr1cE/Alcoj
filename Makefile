@@ -1,3 +1,5 @@
+CONTAINER_NAME := worker-v2
+
 build-sandbox-proto:
 	protoc --go_out=. \
 	--go_opt=paths=source_relative \
@@ -6,13 +8,13 @@ build-sandbox-proto:
 	proto/sandbox.proto
 
 docker-build-worker:
-	docker build -t worker -f dockerfiles/Dockerfile.worker .
+	docker build -t worker:v0.0.2 -f dockerfiles/Dockerfile.worker .
 
 docker-build-master:
 	docker build -t master -f dockerfiles/Dockerfile.master .
 
 docker-run-worker:
-	docker run --privileged --name worker -p 50051:50051 -v /var/run/docker.sock:/var/run/docker.sock -v sandbox:/app/source -it worker
+	docker run --privileged --name $(CONTAINER_NAME) -p 50051:50051 -v /var/run/docker.sock:/var/run/docker.sock -v sandbox:/app/source -it worker:v0.0.2
 
 docker-run-master:
 	docker run --privileged --name master -p 8080:8080 -v sandbox:/sandbox -it master
