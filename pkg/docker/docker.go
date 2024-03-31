@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -20,6 +21,7 @@ const (
 	Unknown = iota
 	Ready
 	Running
+	timeout = 10 * time.Second
 )
 
 type DockerClient struct {
@@ -181,14 +183,32 @@ func (d *DockerClient) Cmd(ctx context.Context, cmd []string, input string) (str
 	}
 	defer resp.Close()
 
-	output, err := io.ReadAll(resp.Reader)
-	if err != nil {
-		return "", fmt.Errorf("failed to read exec output: %w", err)
+	outputChan := make(chan []byte, 1)
+	go func() {
+		scanner := bufio.NewScanner(resp.Reader)
+		for scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				log.Printf("Error reading from scanner: %v", err)
+				return
+			}
+			outputChan <- scanner.Bytes()
+		}
+		defer close(outputChan)
+	}()
+
+	var output []byte
+	for {
+		select {
+		case <-ctx.Done():
+			return string(cleanOutput(output)), nil
+		case line, ok := <-outputChan:
+			if !ok {
+				return string(cleanOutput(output)), nil
+			}
+			output = append(output, line...)
+			output = append(output, '\n')
+		}
 	}
-
-	output = cleanOutput(output)
-
-	return string(output), nil
 }
 
 func cleanOutput(input []byte) []byte {
