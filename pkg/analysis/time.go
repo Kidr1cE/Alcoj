@@ -5,7 +5,10 @@ import (
 	"context"
 	"log"
 	"strings"
+	"time"
 )
+
+const timeout = 10 * time.Second
 
 type TimeMessage struct {
 	Command             string `json:"command,omitempty"`
@@ -39,7 +42,8 @@ type TimeInterface interface {
 type Runner struct{}
 
 func (*Runner) RunTime(cli *docker.DockerClient, filename string, cmd []string, input string) (string, TimeMessage, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	output, err := cli.Cmd(ctx, cmd, input)
 	if err != nil {
 		log.Printf("Cmd() failed: %v", err)
@@ -49,7 +53,14 @@ func (*Runner) RunTime(cli *docker.DockerClient, filename string, cmd []string, 
 	lines := strings.Split(output, "\n")
 
 	timeMessage := TimeMessage{}
-	commandOutputs := parseOutput(lines[0 : len(lines)-24])
+	var commandOutputs string
+
+	// Check if the context was cancelled
+	if ctx.Err() == context.DeadlineExceeded {
+		return output, timeMessage, nil
+	}
+
+	commandOutputs = parseOutput(lines[:len(lines)-24])
 	timeOutputs := lines[len(lines)-24:]
 	for _, line := range timeOutputs {
 		parseTimeLine(line, &timeMessage)
