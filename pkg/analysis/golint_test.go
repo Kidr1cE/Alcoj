@@ -8,7 +8,7 @@ import (
 )
 
 func TestGolint(t *testing.T) {
-	containerID := "8b0e672c0aff3f27e3a95aeb5c1056d9af9e29f913d191e56b515604f19d660e"
+	containerID := "d7b2e6620765e6e169dd739684dc62e8d5cbb9252b641f07854f36096692e258"
 	scriptPath := "/sandbox/main.go"
 
 	dockerClient, err := docker.NewDocker("some-id")
@@ -24,4 +24,7 @@ func TestGolint(t *testing.T) {
 
 	fmt.Println("\n=====================")
 	fmt.Println(outputs)
+	fmt.Println("=====================")
+	message := parseGolintOutput(outputs, scriptPath)
+	fmt.Println(message)
 }

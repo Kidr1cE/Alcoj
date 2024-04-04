@@ -11,35 +11,49 @@ import (
 
 type GolangAnalysis struct{}
 
-func parseGolintOutput(output string) []LinterMessage {
+func parseGolintOutput(output string, scriptPath string) []LinterMessage {
 	messages := []LinterMessage{}
-	reg := regexp.MustCompile(`(\d+):(\d+):\s+(\w+)\:\s+(.+)`)
-	matches := reg.FindAllString(output, -1)
+	filename := scriptPath[strings.LastIndex(scriptPath, "/")+1:]
+	log.Println("Filename:", filename)
 
-	for _, match := range matches {
-		message := parseGolintLine(match)
-		messages = append(messages, message)
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, filename) {
+			message := parseGolintLine(line)
+			messages = append(messages, message)
+		}
 	}
+
 	return messages
 }
 
 // parse line like "27:0: W0311: Bad indentation. Found 1 spaces, expected 4 (bad-indentation)"
 func parseGolintLine(line string) LinterMessage {
-	lineParts := strings.Split(line, ":")
-	lineNumber, err := strconv.Atoi(lineParts[0])
+	line = removeANSIEscapeCodes(line)
+	piece := strings.Split(line, ":")
+	row, err := strconv.Atoi(piece[0])
 	if err != nil {
-		log.Fatalf("Failed to parse line number: %v", err)
+		log.Println("Failed to parse row:", err)
 	}
-	columnNumber, err := strconv.Atoi(lineParts[1])
+	col, err := strconv.Atoi(piece[1])
 	if err != nil {
-		log.Fatalf("Failed to parse column number: %v", err)
+		log.Println("Failed to parse col:", err)
 	}
+	var message string
+	for i := 2; i < len(piece); i++ {
+		message += piece[i]
+	}
+
 	return LinterMessage{
-		Row:       lineNumber,
-		Column:    columnNumber,
-		ErrorCode: lineParts[2],
-		Message:   lineParts[3],
-	}
+		Row:     row,
+		Column:  col,
+		Message: message,
+	} // TODO: implement this function
+}
+
+func removeANSIEscapeCodes(s string) string {
+	ansiEscapeRegex := regexp.MustCompile("\x1b\\[[0-9;]*m")
+	return ansiEscapeRegex.ReplaceAllString(s, "")
 }
 
 func (*GolangAnalysis) Analyze(cli *docker.DockerClient, scriptPath string) ([]LinterMessage, error) {
@@ -49,6 +63,6 @@ func (*GolangAnalysis) Analyze(cli *docker.DockerClient, scriptPath string) ([]L
 		log.Printf("Cmd() failed: %v", err)
 		return nil, err
 	}
-	pylintOutputs := parseGolintOutput(output)
-	return pylintOutputs, nil
+	golintOutputs := parseGolintOutput(output, scriptPath)
+	return golintOutputs, nil
 }
