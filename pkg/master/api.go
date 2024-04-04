@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 )
+
+var port = os.Getenv("PORT")
 
 type JudgeRequest struct {
 	Code            string `json:"code"`
@@ -23,6 +26,7 @@ type JudgeResponse struct {
 }
 
 type RegisterRequest struct {
+	ID      string `json:"id"`
 	Address string `json:"address"`
 	Suffix  string `json:"suffix"`
 }
@@ -36,10 +40,10 @@ func startHttpServer(stopCh chan struct{}) {
 		stopCh <- struct{}{}
 	}()
 
-	http.HandleFunc("/alcoj/api/v1", alcojHandler)
+	http.HandleFunc("/alcoj/api/v1/", alcojHandler)
 	http.HandleFunc("/alcoj/api/v1/register", registerWorkerHandler)
 	log.Println("Starting server on :8080")
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":"+port, nil)
 }
 
 func alcojHandler(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +92,7 @@ func registerWorkerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := master.AddSandboxServer(req.Address, req.Suffix); err != nil {
+	if err := master.AddSandboxServer(req.ID, req.Address, req.Suffix); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -97,7 +101,6 @@ func registerWorkerHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 }
 
 func handleCORS(w http.ResponseWriter, r *http.Request) {

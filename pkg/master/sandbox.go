@@ -23,7 +23,7 @@ type SandboxServer struct {
 	resCh        chan JudgeResponse
 }
 
-func newSandboxServer(address string, suffix string) (*SandboxServer, error) {
+func newSandboxServer(id string, address string, suffix string) (*SandboxServer, error) {
 	// Connect to pb server
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -33,13 +33,14 @@ func newSandboxServer(address string, suffix string) (*SandboxServer, error) {
 
 	c := pb.NewSandboxClient(conn)
 	server := &SandboxServer{
-		WorkerID: uuid.New().String(),
-		conn:     conn,
-		pbCli:    c,
-		suffix:   suffix,
-		stopCh:   make(chan struct{}),
-		reqCh:    make(chan JudgeRequest),
-		resCh:    make(chan JudgeResponse),
+		WorkerID:     id,
+		WorkerStatus: "ready",
+		conn:         conn,
+		pbCli:        c,
+		suffix:       suffix,
+		stopCh:       make(chan struct{}),
+		reqCh:        make(chan JudgeRequest),
+		resCh:        make(chan JudgeResponse),
 	}
 
 	return server, nil
@@ -57,12 +58,21 @@ func (s *SandboxServer) Start() error {
 	}
 	log.Println(health)
 
-	setenvResp, err := s.pbCli.SetEnv(context.Background(), &pb.SetEnvRequest{
-		ImageName:  "worker-python:v0.0.1",
-		Entryshell: "python",
-		Language:   "python",
-		Id:         s.WorkerID,
-	})
+	var setenvResp *pb.SetEnvResponse
+	switch language {
+	case "python":
+		setenvResp, err = s.pbCli.SetEnv(context.Background(), &pb.SetEnvRequest{
+			ImageName:  "sandbox-python:v0.0.1",
+			Entryshell: "python",
+			Language:   "python",
+		})
+	case "golang":
+		setenvResp, err = s.pbCli.SetEnv(context.Background(), &pb.SetEnvRequest{
+			ImageName:  "sandbox-golang:v0.0.1",
+			Entryshell: "go run",
+			Language:   "golang",
+		})
+	}
 	if err != nil {
 		return err
 	}
@@ -91,6 +101,7 @@ func (s *SandboxServer) run(language string, code string, input string) (JudgeRe
 	}
 
 	// Run
+	s.WorkerStatus = "running"
 	res, err := s.pbCli.SimpleRun(context.Background(), &pb.SimpleRunRequest{
 		Filename: filename,
 		Input:    input,
@@ -103,6 +114,8 @@ func (s *SandboxServer) run(language string, code string, input string) (JudgeRe
 	if err != nil {
 		return JudgeResponse{}, err
 	}
+
+	s.WorkerStatus = "ready"
 	return message, nil
 }
 

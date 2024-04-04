@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/websocket"
 )
+
+var websocketPort = os.Getenv("WEBSOCKET_PORT")
 
 type BackendRequest struct {
 	Key string `json:"key"`
@@ -65,9 +68,9 @@ func startWebsocketServer(stopCh chan struct{}) {
 		stopCh <- struct{}{}
 	}()
 
-	http.HandleFunc("/python3", handler)
-	log.Println("Listening on :7070")
-	err := http.ListenAndServe(":7070", nil)
+	http.HandleFunc("/"+language, handler)
+	log.Printf("Listening on :%s", websocketPort)
+	err := http.ListenAndServe(":"+websocketPort, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}

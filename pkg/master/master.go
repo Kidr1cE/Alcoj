@@ -2,10 +2,14 @@ package master
 
 import (
 	"log"
+	"os"
 	"sync/atomic"
 )
 
+var language = os.Getenv("LANGUAGE")
+
 type Master struct {
+	language      string
 	WorkerNum     atomic.Int64     `json:"worker_num"`
 	QueueTasks    atomic.Int64     `json:"queue_tasks"`
 	FinishedTasks atomic.Int64     `json:"finished_tasks"`
@@ -16,6 +20,7 @@ var master *Master
 
 func StartServer() {
 	master = &Master{
+		language:      language,
 		QueueTasks:    atomic.Int64{},
 		FinishedTasks: atomic.Int64{},
 	}
@@ -32,14 +37,14 @@ func StartServer() {
 	<-websocketStopCh
 }
 
-func (m *Master) AddSandboxServer(address string, suffix string) error {
-	s, err := newSandboxServer(address, suffix)
+func (m *Master) AddSandboxServer(id string, address string, suffix string) error {
+	sandbox, err := newSandboxServer(id, address, suffix)
 	if err != nil {
 		return err
 	}
-	m.Workers = append(m.Workers, s)
+	m.Workers = append(m.Workers, sandbox)
 	go func() {
-		err := s.Start()
+		err := sandbox.Start()
 		if err != nil {
 			log.Println("failed to start sandbox server: ", err)
 			return
@@ -65,6 +70,7 @@ func (m *Master) Run(language, code, input string) (JudgeResponse, error) {
 	for _, worker := range m.Workers {
 		select {
 		case worker.reqCh <- req:
+
 		default:
 			continue
 		}
