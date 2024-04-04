@@ -19,7 +19,8 @@ message GetStatusResponse{
 message SetEnvRequest {
     string image_name = 1;
     string entryshell = 2;
-    string language = 3;    // python3, golang
+    string language = 3;    // python, golang
+    string id = 4;
 }
 
 message SetEnvResponse {
