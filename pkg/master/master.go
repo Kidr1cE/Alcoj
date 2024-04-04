@@ -1,17 +1,35 @@
 package master
 
+import (
+	"log"
+	"sync/atomic"
+)
+
 type Master struct {
-	workerNum int
-	workers   []*SandboxServer
+	WorkerNum     atomic.Int64     `json:"worker_num"`
+	QueueTasks    atomic.Int64     `json:"queue_tasks"`
+	FinishedTasks atomic.Int64     `json:"finished_tasks"`
+	Workers       []*SandboxServer `json:"workers"`
 }
 
 var master *Master
 
 func StartServer() {
-	master = &Master{}
-	master.AddSandboxServer("host.docker.internal:50051", ".py")
+	master = &Master{
+		QueueTasks:    atomic.Int64{},
+		FinishedTasks: atomic.Int64{},
+	}
+	master.QueueTasks.Store(0)
+	master.FinishedTasks.Store(0)
+	// master.AddSandboxServer("host.docker.internal:50051", ".py")
 
-	startHttpServer()
+	httpStopCh := make(chan struct{})
+	websocketStopCh := make(chan struct{})
+	go startHttpServer(httpStopCh)
+	go startWebsocketServer(websocketStopCh)
+
+	<-httpStopCh
+	<-websocketStopCh
 }
 
 func (m *Master) AddSandboxServer(address string, suffix string) error {
@@ -19,24 +37,39 @@ func (m *Master) AddSandboxServer(address string, suffix string) error {
 	if err != nil {
 		return err
 	}
-	m.workers = append(m.workers, s)
-	go s.Start()
+	m.Workers = append(m.Workers, s)
+	go func() {
+		err := s.Start()
+		if err != nil {
+			log.Println("failed to start sandbox server: ", err)
+			return
+		}
+	}()
 
-	m.workerNum++
+	m.WorkerNum.Add(1)
 	return nil
 }
 
-func (m *Master) Run(language, code, input string) (Response, error) {
-	req := Request{
+func (m *Master) Run(language, code, input string) (JudgeResponse, error) {
+	defer func() {
+		m.QueueTasks.Add(-1)
+		m.FinishedTasks.Add(1)
+	}()
+	req := JudgeRequest{
 		Code:     code,
 		Language: language,
 		Input:    input,
 	}
-	worker := m.getWorker()
-	worker.reqCh <- req
-	return <-worker.resCh, nil
-}
+	m.QueueTasks.Add(1)
 
-func (m *Master) getWorker() *SandboxServer {
-	return m.workers[0]
+	for _, worker := range m.Workers {
+		select {
+		case worker.reqCh <- req:
+		default:
+			continue
+		}
+		return <-worker.resCh, nil
+	}
+
+	return JudgeResponse{}, nil
 }

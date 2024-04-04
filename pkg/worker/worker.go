@@ -5,11 +5,13 @@ import (
 	"alcoj/pkg/docker"
 	pb "alcoj/proto"
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -18,6 +20,8 @@ import (
 var (
 	dockerClient *docker.DockerClient
 	timeBash     = []string{"/usr/bin/time", "-v"}
+	port         = os.Getenv("PORT")
+	masterAddr   = os.Getenv("MASTER_ADDR")
 )
 
 type WorkerServer struct {
@@ -29,23 +33,52 @@ type WorkerServer struct {
 	pb.UnimplementedSandboxServer
 }
 
-func Run(stopChan chan struct{}) {
-	startServer()
-	stopChan <- struct{}{}
+func StartServer() {
+	stopCh := make(chan struct{})
+	go func() {
+		err := startServer(stopCh)
+		if err != nil {
+			log.Println("failed to start server: ", err)
+			return
+		}
+	}()
+	time.Sleep(1 * time.Second)
+	err := register()
+	if err != nil {
+		log.Println("failed to register: ", err)
+		return
+	}
+	stopCh <- struct{}{}
 }
 
-func startServer() {
-	port := flag.Int("port", 50051, "The server port")
-	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+func register() error {
+	// Connect to master
+	res, err := http.Post(
+		"http://"+masterAddr+"/alcoj/api/v1/register",
+		"application/json",
+		strings.NewReader(`{"address": "host.docker.internal:50051", "suffix": ".py"}`))
+	if err != nil {
+		return err
+	}
+	log.Println("register response: ", res.Status)
+
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to register: %s", res.Status)
+	}
+	return nil
+}
+
+func startServer(stopCh chan struct{}) error {
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
+		return err
 	}
 
 	id := uuid.New().String()
 	dockerClient, err = docker.NewDocker(id)
 	if err != nil {
-		return
+		return err
 	}
 
 	s := grpc.NewServer()
@@ -58,6 +91,9 @@ func startServer() {
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+
+	stopCh <- struct{}{}
+	return nil
 }
 
 func (s *WorkerServer) HealthCheck(ctx context.Context, in *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
@@ -101,7 +137,7 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 	s.runner = analysis.Runner{}
 
 	// Create container
-	uuid := uuid.New().String()
+	uuid := in.Id
 	err := s.cli.Create(ctx, uuid)
 	if err != nil {
 		log.Println("create error: ", err)

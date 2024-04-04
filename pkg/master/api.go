@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-type Request struct {
+type JudgeRequest struct {
 	Code            string `json:"code"`
 	Language        string `json:"language"`
 	Input           string `json:"input"`
@@ -16,13 +16,26 @@ type Request struct {
 	StaticAnalysis  bool   `json:"static_analysis"`
 }
 
-type Response struct {
+type JudgeResponse struct {
 	Output          string                   `json:"output"`
 	StaticAnalysis  []analysis.LinterMessage `json:"static_analysis"`
 	RuntimeAnalysis analysis.TimeMessage     `json:"runtime_analysis"`
 }
 
-func startHttpServer() {
+type RegisterRequest struct {
+	Address string `json:"address"`
+	Suffix  string `json:"suffix"`
+}
+
+type RegisterResponse struct {
+	Success bool `json:"success"`
+}
+
+func startHttpServer(stopCh chan struct{}) {
+	defer func() {
+		stopCh <- struct{}{}
+	}()
+
 	http.HandleFunc("/alcoj/api/v1", alcojHandler)
 	http.HandleFunc("/alcoj/api/v1/register", registerWorkerHandler)
 	log.Println("Starting server on :8080")
@@ -37,7 +50,7 @@ func alcojHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req Request
+	var req JudgeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -69,10 +82,7 @@ func registerWorkerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Address string `json:"address"`
-		Suffix  string `json:"suffix"`
-	}
+	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -82,6 +92,12 @@ func registerWorkerHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	if err := json.NewEncoder(w).Encode(RegisterResponse{Success: true}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 }
 
 func handleCORS(w http.ResponseWriter, r *http.Request) {

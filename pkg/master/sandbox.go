@@ -13,12 +13,14 @@ import (
 )
 
 type SandboxServer struct {
-	conn   *grpc.ClientConn
-	pbCli  pb.SandboxClient
-	suffix string
-	stopCh chan struct{}
-	reqCh  chan Request
-	resCh  chan Response
+	WorkerID     string `json:"worker_id"`
+	WorkerStatus string `json:"worker_status"`
+	conn         *grpc.ClientConn
+	pbCli        pb.SandboxClient
+	suffix       string
+	stopCh       chan struct{}
+	reqCh        chan JudgeRequest
+	resCh        chan JudgeResponse
 }
 
 func newSandboxServer(address string, suffix string) (*SandboxServer, error) {
@@ -31,12 +33,13 @@ func newSandboxServer(address string, suffix string) (*SandboxServer, error) {
 
 	c := pb.NewSandboxClient(conn)
 	server := &SandboxServer{
-		conn:   conn,
-		pbCli:  c,
-		suffix: suffix,
-		stopCh: make(chan struct{}),
-		reqCh:  make(chan Request),
-		resCh:  make(chan Response),
+		WorkerID: uuid.New().String(),
+		conn:     conn,
+		pbCli:    c,
+		suffix:   suffix,
+		stopCh:   make(chan struct{}),
+		reqCh:    make(chan JudgeRequest),
+		resCh:    make(chan JudgeResponse),
 	}
 
 	return server, nil
@@ -58,6 +61,7 @@ func (s *SandboxServer) Start() error {
 		ImageName:  "worker-python:v0.0.1",
 		Entryshell: "python",
 		Language:   "python",
+		Id:         s.WorkerID,
 	})
 	if err != nil {
 		return err
@@ -78,12 +82,12 @@ func (s *SandboxServer) Start() error {
 	}
 }
 
-func (s *SandboxServer) run(language string, code string, input string) (Response, error) {
+func (s *SandboxServer) run(language string, code string, input string) (JudgeResponse, error) {
 	// Write code to file
 	filename := uuid.New().String() + s.suffix
 	err := os.WriteFile("/sandbox/"+filename, []byte(code), 0644)
 	if err != nil {
-		return Response{}, err
+		return JudgeResponse{}, err
 	}
 
 	// Run
@@ -93,18 +97,18 @@ func (s *SandboxServer) run(language string, code string, input string) (Respons
 	})
 	if err != nil {
 		log.Printf("could not SimpleRun: %v", err)
-		return Response{}, err
+		return JudgeResponse{}, err
 	}
 	message, err := parseResponse(res)
 	if err != nil {
-		return Response{}, err
+		return JudgeResponse{}, err
 	}
 	return message, nil
 }
 
-func parseResponse(response *pb.SimpleRunResponse) (Response, error) {
+func parseResponse(response *pb.SimpleRunResponse) (JudgeResponse, error) {
 	// Parse
-	var res Response
+	var res JudgeResponse
 	res.Output = response.Output
 	if response.TimeResult != nil {
 		timeResult := analysis.TimeMessage{
