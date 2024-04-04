@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -17,20 +16,11 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-const (
-	Unknown = iota
-	Ready
-	Running
-	timeout = 10 * time.Second
-)
-
 type DockerClient struct {
-	ID            string
-	Image         string
-	ContainerID   string
-	ContainerName string
-	Status        int
-	cli           *client.Client
+	ID          string
+	Image       string
+	ContainerID string
+	cli         *client.Client
 }
 
 func NewDocker(id string) (*DockerClient, error) {
@@ -41,9 +31,8 @@ func NewDocker(id string) (*DockerClient, error) {
 	}
 
 	worker := &DockerClient{
-		ID:     id,
-		Status: Unknown,
-		cli:    cli,
+		ID:  id,
+		cli: cli,
 	}
 
 	return worker, nil
@@ -88,10 +77,7 @@ func (d *DockerClient) CheckContainerHealth(ctx context.Context) (bool, error) {
 // Create docker container
 func (d *DockerClient) Create(ctx context.Context, id string) error {
 	// generate container name
-	imageName := strings.Split(d.Image, ":")[0]
-	preID := strings.Split(id, "-")[0]
-	containerName := fmt.Sprintf("%s-%s", imageName, preID)
-	d.ContainerName = containerName
+	containerName := id
 
 	// create container
 	resp, err := d.cli.ContainerCreate(ctx, &container.Config{

@@ -4,7 +4,9 @@ import (
 	"alcoj/pkg/analysis"
 	"alcoj/pkg/docker"
 	pb "alcoj/proto"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -13,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"google.golang.org/grpc"
 )
 
@@ -22,6 +23,7 @@ var (
 	timeBash     = []string{"/usr/bin/time", "-v"}
 	port         = os.Getenv("PORT")
 	masterAddr   = os.Getenv("MASTER_ADDR")
+	id           = os.Getenv("WORKER_ID")
 )
 
 type WorkerServer struct {
@@ -31,6 +33,12 @@ type WorkerServer struct {
 	analysis      analysis.AnalysisInterface
 	runner        analysis.Runner
 	pb.UnimplementedSandboxServer
+}
+
+type RegisterRequest struct {
+	ID      string `json:"id"`
+	Address string `json:"address"`
+	Suffix  string `json:"suffix"`
 }
 
 func StartServer() {
@@ -52,11 +60,22 @@ func StartServer() {
 }
 
 func register() error {
+	req := RegisterRequest{
+		ID:      id,
+		Address: "host.docker.internal:" + port,
+		Suffix:  ".py",
+	}
+	content, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
 	// Connect to master
 	res, err := http.Post(
 		"http://"+masterAddr+"/alcoj/api/v1/register",
 		"application/json",
-		strings.NewReader(`{"address": "host.docker.internal:50051", "suffix": ".py"}`))
+		bytes.NewBuffer(content),
+	)
 	if err != nil {
 		return err
 	}
@@ -75,8 +94,7 @@ func startServer(stopCh chan struct{}) error {
 		return err
 	}
 
-	id := uuid.New().String()
-	dockerClient, err = docker.NewDocker(id)
+	dockerClient, err = docker.NewDocker(id + "-box")
 	if err != nil {
 		return err
 	}
@@ -137,8 +155,7 @@ func (s *WorkerServer) SetEnv(ctx context.Context, in *pb.SetEnvRequest) (*pb.Se
 	s.runner = analysis.Runner{}
 
 	// Create container
-	uuid := in.Id
-	err := s.cli.Create(ctx, uuid)
+	err := s.cli.Create(ctx, id+"-box")
 	if err != nil {
 		log.Println("create error: ", err)
 		return &pb.SetEnvResponse{
