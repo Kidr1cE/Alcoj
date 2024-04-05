@@ -114,7 +114,7 @@ const initialParsedResponse: Response = {
 
 const Backend: React.FC = () => {
     const wsRef = useRef<WebSocket | null>(null);
-    const [selectedLanguage, setSelectedLanguage] = useState<string>('python3');
+    const [selectedLanguage, setSelectedLanguage] = useState<string>('python');
     const [message, setMessage] = useState('');
     const [parsedResponse, setParsedResponse] = useState<Response>(initialParsedResponse); // 设置初始值
 
@@ -181,7 +181,7 @@ const Backend: React.FC = () => {
                     style={{ width: 120, marginLeft: 20 }}
                     onChange={handleChange}
                     options={[
-                        { value: 'python3', label: 'Python3' },
+                        { value: 'python', label: 'Python3' },
                         { value: 'golang', label: 'Golang' },
                     ]}
                 />

@@ -9,7 +9,6 @@ import (
 var language = os.Getenv("LANGUAGE")
 
 type Master struct {
-	language      string
 	WorkerNum     atomic.Int64     `json:"worker_num"`
 	QueueTasks    atomic.Int64     `json:"queue_tasks"`
 	FinishedTasks atomic.Int64     `json:"finished_tasks"`
@@ -20,7 +19,6 @@ var master *Master
 
 func StartServer() {
 	master = &Master{
-		language:      language,
 		QueueTasks:    atomic.Int64{},
 		FinishedTasks: atomic.Int64{},
 	}

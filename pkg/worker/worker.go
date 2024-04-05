@@ -63,7 +63,6 @@ func register() error {
 	req := RegisterRequest{
 		ID:      id,
 		Address: "host.docker.internal:" + port,
-		Suffix:  ".py",
 	}
 	content, err := json.Marshal(req)
 	if err != nil {

@@ -40,14 +40,18 @@ func startHttpServer(stopCh chan struct{}) {
 		stopCh <- struct{}{}
 	}()
 
-	http.HandleFunc("/alcoj/api/v1/", alcojHandler)
+	http.HandleFunc("/alcoj/api/v1", alcojHandler)
 	http.HandleFunc("/alcoj/api/v1/register", registerWorkerHandler)
 	log.Println("Starting server on :8080")
 	http.ListenAndServe(":"+port, nil)
 }
 
 func alcojHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Request received: ", r.Method, r.URL.Path)
 	handleCORS(w, r)
+	if r.Method == http.MethodOptions {
+		return
+	}
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

@@ -127,7 +127,7 @@ interface StaticAnalysis {
 }
 
 const App: React.FC = () => {
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('python3');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('python');
   const [code, setCode] = useState<string>('');
   const [input, setInput] = useState<string>('');
 
@@ -175,11 +175,11 @@ const App: React.FC = () => {
         <Content style={contentStyle}>
           <div style={leftStyle}>
             <Select
-              defaultValue="python3"
+              defaultValue="python"
               style={{ width: 120 }}
               onChange={handleChange}
               options={[
-                { value: 'python3', label: 'Python3' },
+                { value: 'python', label: 'Python3' },
                 { value: 'golang', label: 'Golang' },
               ]}
             />
