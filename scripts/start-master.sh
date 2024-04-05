@@ -17,11 +17,11 @@ fi
 MASTER_NAME=${LANGUAGE}-master
 
 docker run --privileged \
-    --name $MASTER_NAME \
-    -e PORT=$MASTER_PORT \
-    -e WEBSOCKET_PORT=$MASTER_WEBSOCKET_PORT \
-    -e LANGUAGE=$LANGUAGE \
-    -p $MASTER_PORT:$MASTER_PORT \
-    -p 7070:7070 \
-    -v sandbox:/sandbox \
-    -it master:v0.0.1
+        --name $MASTER_NAME \
+        -e PORT=$MASTER_PORT \
+        -e WEBSOCKET_PORT=$MASTER_WEBSOCKET_PORT \
+        -e LANGUAGE=$LANGUAGE \
+        -p $MASTER_PORT:$MASTER_PORT \
+        -p $MASTER_WEBSOCKET_PORT:$MASTER_WEBSOCKET_PORT \
+        -v sandbox:/sandbox \
+        -d master:v0.0.1

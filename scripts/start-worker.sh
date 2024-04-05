@@ -24,4 +24,4 @@ docker run --privileged \
         -e MASTER_ADDR=$MASTER_ADDR \
         -p $WORKER_PORT:$WORKER_PORT \
         -v /var/run/docker.sock:/var/run/docker.sock \
-        -it worker:v0.0.3
+        -d worker:v0.0.3
