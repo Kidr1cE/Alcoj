@@ -35,7 +35,15 @@ func StartServer() {
 	<-websocketStopCh
 }
 
-func (m *Master) AddSandboxServer(id string, address string, suffix string) error {
+func (m *Master) AddSandboxServer(id string, address string) error {
+	suffix := ""
+	switch language {
+	case "python":
+		suffix = ".py"
+	case "golang":
+		suffix = ".go"
+	}
+
 	sandbox, err := newSandboxServer(id, address, suffix)
 	if err != nil {
 		return err

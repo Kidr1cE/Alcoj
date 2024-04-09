@@ -155,7 +155,18 @@ const App: React.FC = () => {
     console.log('Request body:', requestBody);
 
     try {
-      const response = await axios.post('http://localhost:8080/alcoj/api/v1', requestBody);
+      let url = 'http://localhost:8080/alcoj/api/v1';
+      switch (selectedLanguage) {
+        case 'python':
+          url = 'http://localhost:8080/alcoj/api/v1';
+          break;
+        case 'golang':
+          url = 'http://localhost:8081/alcoj/api/v1';
+          break;
+        default:
+          break;
+      }
+      const response = await axios.post(url, requestBody);
 
       if (response.status === 200 && response.data) {
         setResponse(response.data);

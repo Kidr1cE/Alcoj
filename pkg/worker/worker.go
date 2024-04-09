@@ -38,7 +38,6 @@ type WorkerServer struct {
 type RegisterRequest struct {
 	ID      string `json:"id"`
 	Address string `json:"address"`
-	Suffix  string `json:"suffix"`
 }
 
 func StartServer() {

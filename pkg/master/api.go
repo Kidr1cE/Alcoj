@@ -42,7 +42,8 @@ func startHttpServer(stopCh chan struct{}) {
 
 	http.HandleFunc("/alcoj/api/v1", alcojHandler)
 	http.HandleFunc("/alcoj/api/v1/register", registerWorkerHandler)
-	log.Println("Starting server on :8080")
+
+	log.Println("Server started at port: ", port)
 	http.ListenAndServe(":"+port, nil)
 }
 
@@ -96,7 +97,7 @@ func registerWorkerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := master.AddSandboxServer(req.ID, req.Address, req.Suffix); err != nil {
+	if err := master.AddSandboxServer(req.ID, req.Address); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

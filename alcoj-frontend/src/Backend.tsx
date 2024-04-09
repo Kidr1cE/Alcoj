@@ -116,16 +116,25 @@ const Backend: React.FC = () => {
     const wsRef = useRef<WebSocket | null>(null);
     const [selectedLanguage, setSelectedLanguage] = useState<string>('python');
     const [message, setMessage] = useState('');
-    const [parsedResponse, setParsedResponse] = useState<Response>(initialParsedResponse); // 设置初始值
+    const [parsedResponse, setParsedResponse] = useState<Response>(initialParsedResponse);
 
 
     const handleChange = (value: string) => {
         setSelectedLanguage(value);
     };
 
-    // 建立 WebSocket 连接并在接收到消息时更新状态
     useEffect(() => {
-        const url = `ws://localhost:7070/${selectedLanguage}`;
+        let url = `ws://localhost:7070/${selectedLanguage}`;
+        switch (selectedLanguage) {
+            case 'python':
+                url = 'ws://localhost:7070/python';
+                break;
+            case 'golang':
+                url = 'ws://localhost:7071/golang';
+                break;
+            default:
+                break;
+        }
         wsRef.current = new WebSocket(url);
         wsRef.current.onmessage = (e) => {
             setMessage(e.data);
