@@ -3,7 +3,7 @@ import React from 'react';
 import { Layout, Input, Select, Button, Card } from 'antd';
 import { CaretRightOutlined } from '@ant-design/icons';
 import { useState } from 'react';
-import axios from 'axios'; // 假设您已经安装了axios库来处理HTTP请求
+import axios from 'axios';
 
 const { Header, Footer, Sider, Content } = Layout;
 

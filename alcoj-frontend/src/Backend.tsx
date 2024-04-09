@@ -1,8 +1,7 @@
 /* eslint-disable react/no-array-index-key */
-import React, { useState, useRef, useLayoutEffect, useEffect } from 'react';
-import { Layout, Select, Button, Card, Typography, Flex, Col, Row, Statistic } from 'antd';
+import React, { useState, useRef, useEffect } from 'react';
+import { Layout, Select, Card, Typography, Flex, Col, Row, Statistic } from 'antd';
 import CountUp from 'react-countup';
-import axios from 'axios'; // 假设您已经安装了axios库来处理HTTP请求
 
 const { Header, Content } = Layout;
 const { Paragraph, Text } = Typography;
