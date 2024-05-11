@@ -1,0 +1,11 @@
+FROM node:16-alpine AS build
+
+WORKDIR /app
+
+COPY alcoj-frontend/package*.json ./
+
+RUN npm install
+
+COPY alcoj-frontend/. .
+
+CMD ["npm", "run", "start"]

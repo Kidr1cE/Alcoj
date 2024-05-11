@@ -16,3 +16,6 @@ docker-build-python-sandbox:
 
 docker-build-golang-sandbox:
 	docker build -t sandbox-golang:v0.0.1 -f dockerfiles/Dockerfile.sandbox.golang .
+
+docker-build-frontend:
+	 docker build -t  frontend:v0.0.1 -f dockerfiles/Dockerfile.frontend .
