@@ -1,4 +1,5 @@
 # !/bin/bash
+# bash scripts/start-worker.sh 40050 host.docker.internal:8080
 
 MASTER_ADDR=host.docker.internal:8080
 
